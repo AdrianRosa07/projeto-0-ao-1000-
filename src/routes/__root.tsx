@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { PortfolioProvider } from "../lib/portfolio-store";
+import { AuthProvider, useAuth } from "../lib/auth-store";
 import { Toaster } from "@/components/ui/sonner";
 
 function NotFoundComponent() {
@@ -129,16 +130,40 @@ function RootShell({ children }: { children: ReactNode }) {
   );
 }
 
+function AuthWrapper({ children }: { children: ReactNode }) {
+  const { session, loading } = useAuth();
+  const router = useRouter();
+  
+  if (loading) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background">
+        <div className="size-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+        <p className="mt-4 text-sm text-muted-foreground">Carregando...</p>
+      </div>
+    );
+  }
+
+  if (!session && router.state.location.pathname !== '/login') {
+    router.navigate({ to: '/login' });
+    return null;
+  }
+
+  return <>{children}</>;
+}
+
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
   return (
     <QueryClientProvider client={queryClient}>
-      <PortfolioProvider>
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-        <Toaster richColors position="bottom-right" />
-      </PortfolioProvider>
+      <AuthProvider>
+        <PortfolioProvider>
+          <AuthWrapper>
+            <Outlet />
+            <Toaster richColors position="bottom-right" />
+          </AuthWrapper>
+        </PortfolioProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }
