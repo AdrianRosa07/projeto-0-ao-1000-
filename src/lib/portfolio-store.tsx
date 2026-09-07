@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
 import { z } from "zod";
 import { useCotacoes } from "../hooks/useCotacoes";
+import { supabase } from "./supabase";
+import { useAuth } from "./auth-store";
 import {
   ativos as initialAtivos,
   metaPorClasse as initialMetas,
@@ -102,17 +104,17 @@ export const metasSchema = z.record(z.string(), z.number());
 
 interface PortfolioContextType extends PortfolioState {
   // Ações de Ativos
-  addAtivo: (ativo: Ativo) => void;
-  updateAtivo: (ticker: string, updates: Partial<Ativo>) => void;
-  deleteAtivo: (ticker: string) => void;
+  addAtivo: (ativo: Ativo) => Promise<void>;
+  updateAtivo: (ticker: string, updates: Partial<Ativo>) => Promise<void>;
+  deleteAtivo: (ticker: string) => Promise<void>;
 
   // Ações de Transações
-  registrarTransacao: (transacao: Omit<Transacao, "id">) => void;
-  deleteTransacao: (id: string) => void;
+  registrarTransacao: (transacao: Omit<Transacao, "id">) => Promise<void>;
+  deleteTransacao: (id: string) => Promise<void>;
 
   // Ações de Proventos
-  registrarProvento: (provento: Omit<ProventoRegistro, "id">) => void;
-  deleteProvento: (id: string) => void;
+  registrarProvento: (provento: Omit<ProventoRegistro, "id">) => Promise<void>;
+  deleteProvento: (id: string) => Promise<void>;
 
   // Metas & Configurações
   updateMetas: (novasMetas: Record<string, number>) => void;
@@ -164,9 +166,10 @@ const initialProventosNormalized: ProventoRegistro[] = [
 const PortfolioContext = createContext<PortfolioContextType | null>(null);
 
 export function PortfolioProvider({ children }: { children: ReactNode }) {
-  const [ativos, setAtivos] = useState<Ativo[]>(initialAtivos);
+  const { user } = useAuth();
+  const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
-  const [proventos, setProventos] = useState<ProventoRegistro[]>(initialProventosNormalized);
+  const [proventos, setProventos] = useState<ProventoRegistro[]>([]);
   const [metas, setMetas] = useState<Record<string, number>>(initialMetas);
   const [modoPrivacidade, setModoPrivacidade] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -174,109 +177,195 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   // Hook para buscar cotações em tempo real
   const { data: cotacoes, isFetching: isLoadingCotacoes } = useCotacoes(ativos.map(a => a.ticker));
 
-  // Carregar do LocalStorage na montagem (client-only)
+  // Carregar do Supabase e configs locais
   useEffect(() => {
+    // 1. Carregar configurações locais
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        
-        const ativosParsed = z.array(ativoSchema).safeParse(parsed.ativos);
-        if (ativosParsed.success) setAtivos(ativosParsed.data);
-        else console.warn("Ativos no localStorage falharam na validação.", ativosParsed.error);
-        
-        const transacoesParsed = z.array(transacaoSchema).safeParse(parsed.transacoes);
-        if (transacoesParsed.success) setTransacoes(transacoesParsed.data);
-        else console.warn("Transações no localStorage falharam na validação.", transacoesParsed.error);
-        
-        const proventosParsed = z.array(proventoRegistroSchema).safeParse(parsed.proventos);
-        if (proventosParsed.success) setProventos(proventosParsed.data);
-        else console.warn("Proventos no localStorage falharam na validação.", proventosParsed.error);
-        
-        const metasParsed = metasSchema.safeParse(parsed.metas);
-        if (metasParsed.success) setMetas(metasParsed.data);
-        else console.warn("Metas no localStorage falharam na validação.", metasParsed.error);
-        
+        if (parsed.metas) setMetas(parsed.metas);
         if (typeof parsed.modoPrivacidade === "boolean") setModoPrivacidade(parsed.modoPrivacidade);
       }
     } catch (e) {
-      console.warn("Falha ao ler dados salvos no LocalStorage:", e);
-    } finally {
-      setIsHydrated(true);
+      console.warn("Falha ao ler config local:", e);
     }
-  }, []);
 
-  // Salvar no LocalStorage sempre que houver mudanças após a hidratação
+    // 2. Carregar dados do banco se logado
+    if (!user) {
+      setAtivos([]);
+      setTransacoes([]);
+      setProventos([]);
+      setIsHydrated(true);
+      return;
+    }
+
+    const fetchSupabase = async () => {
+      try {
+        const [resAtivos, resTx, resProv] = await Promise.all([
+          supabase.from('ativos').select('*').eq('user_id', user.id),
+          supabase.from('transacoes').select('*').eq('user_id', user.id),
+          supabase.from('proventos').select('*').eq('user_id', user.id)
+        ]);
+
+        if (resAtivos.data) {
+          setAtivos(resAtivos.data.map(a => ({
+            ticker: a.ticker,
+            nome: a.nome || a.ticker,
+            classe: "Ação", // Provisório, será expandido no banco
+            setor: a.setor || "Geral",
+            quantidade: Number(a.quantidade),
+            precoMedio: Number(a.preco_medio),
+            precoAtual: Number(a.preco_medio), // será substituído pela cotação
+            dyAno: 0,
+            proventos12m: 0,
+            notaFundamentalista: 0,
+          })));
+        }
+
+        if (resTx.data) {
+          setTransacoes(resTx.data.map(t => ({
+            id: t.id,
+            data: t.data,
+            ticker: t.ticker,
+            tipo: t.tipo as "compra" | "venda",
+            quantidade: Number(t.quantidade),
+            precoUnitario: Number(t.preco),
+          })));
+        }
+
+        if (resProv.data) {
+          setProventos(resProv.data.map(p => ({
+            id: p.id,
+            data: p.data_pagamento,
+            ticker: p.ticker,
+            tipo: p.tipo as ProventoRegistro["tipo"],
+            valor: Number(p.valor_total),
+            status: "Recebido"
+          })));
+        }
+      } catch (e) {
+        console.error("Erro ao carregar dados remotos:", e);
+      } finally {
+        setIsHydrated(true);
+      }
+    };
+
+    fetchSupabase();
+  }, [user]);
+
+  // Salvar no LocalStorage somente as configurações locais
   useEffect(() => {
     if (!isHydrated) return;
     try {
-      const payload = {
-        ativos,
-        transacoes,
-        proventos,
-        metas,
-        modoPrivacidade,
-      };
+      const payload = { metas, modoPrivacidade };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
     } catch (e) {
       console.error("Erro ao salvar no LocalStorage:", e);
     }
-  }, [ativos, transacoes, proventos, metas, modoPrivacidade, isHydrated]);
+  }, [metas, modoPrivacidade, isHydrated]);
 
   // Ações de Ativos
-  const addAtivo = (novo: Ativo) => {
+  const addAtivo = async (novo: Ativo) => {
+    if (!user) return;
     const formattedTicker = novo.ticker.toUpperCase().trim();
-    setAtivos((prev) => {
-      const index = prev.findIndex((a) => a.ticker.toUpperCase() === formattedTicker);
-      if (index >= 0) {
-        const copy = [...prev];
-        copy[index] = { ...novo, ticker: formattedTicker };
-        return copy;
-      }
-      return [...prev, { ...novo, ticker: formattedTicker }];
-    });
+    
+    const { error } = await supabase.from('ativos').insert([{
+      user_id: user.id,
+      ticker: formattedTicker,
+      nome: novo.nome,
+      setor: novo.setor,
+      quantidade: novo.quantidade,
+      preco_medio: novo.precoMedio,
+    }]);
+
+    if (!error) {
+      setAtivos((prev) => {
+        const index = prev.findIndex((a) => a.ticker.toUpperCase() === formattedTicker);
+        if (index >= 0) {
+          const copy = [...prev];
+          copy[index] = { ...novo, ticker: formattedTicker };
+          return copy;
+        }
+        return [...prev, { ...novo, ticker: formattedTicker }];
+      });
+    }
   };
 
-  const updateAtivo = (ticker: string, updates: Partial<Ativo>) => {
+  const updateAtivo = async (ticker: string, updates: Partial<Ativo>) => {
+    if (!user) return;
     const searchTicker = ticker.toUpperCase();
+    
+    const payload: any = {};
+    if (updates.quantidade !== undefined) payload.quantidade = updates.quantidade;
+    if (updates.precoMedio !== undefined) payload.preco_medio = updates.precoMedio;
+    
+    if (Object.keys(payload).length > 0) {
+      await supabase.from('ativos').update(payload).eq('user_id', user.id).eq('ticker', searchTicker);
+    }
+    
     setAtivos((prev) =>
       prev.map((a) => (a.ticker.toUpperCase() === searchTicker ? { ...a, ...updates } : a)),
     );
   };
 
-  const deleteAtivo = (ticker: string) => {
+  const deleteAtivo = async (ticker: string) => {
+    if (!user) return;
     const searchTicker = ticker.toUpperCase();
+    await supabase.from('ativos').delete().eq('user_id', user.id).eq('ticker', searchTicker);
     setAtivos((prev) => prev.filter((a) => a.ticker.toUpperCase() !== searchTicker));
   };
 
   // Ações de Transações com recálculo automático de preço médio
-  const registrarTransacao = (tx: Omit<Transacao, "id">) => {
-    const id = `tx-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-    const newTx: Transacao = { ...tx, id, ticker: tx.ticker.toUpperCase().trim() };
+  const registrarTransacao = async (tx: Omit<Transacao, "id">) => {
+    if (!user) return;
+    const formattedTicker = tx.ticker.toUpperCase().trim();
+    
+    const { data, error } = await supabase.from('transacoes').insert([{
+      user_id: user.id,
+      ticker: formattedTicker,
+      tipo: tx.tipo,
+      quantidade: tx.quantidade,
+      preco: tx.precoUnitario,
+      data: tx.data
+    }]).select();
 
+    if (error || !data || data.length === 0) {
+      console.error(error);
+      return;
+    }
+
+    const newTx: Transacao = { ...tx, id: data[0].id, ticker: formattedTicker };
     setTransacoes((prev) => [newTx, ...prev]);
 
     // Recalcular posição do ativo
     setAtivos((prev) => {
       const index = prev.findIndex((a) => a.ticker.toUpperCase() === newTx.ticker);
       if (index === -1) {
-        // Se for compra de um ativo ainda não cadastrado, cria automaticamente
         if (newTx.tipo === "compra") {
-          return [
-            ...prev,
-            {
-              ticker: newTx.ticker,
-              nome: newTx.ticker,
-              classe: "Ação",
-              setor: "Geral",
-              quantidade: newTx.quantidade,
-              precoMedio: newTx.precoUnitario,
-              precoAtual: newTx.precoUnitario,
-              dyAno: 6.0,
-              proventos12m: newTx.precoUnitario * 0.06,
-              notaFundamentalista: 8.0,
-            },
-          ];
+          const novoAtivo = {
+            ticker: newTx.ticker,
+            nome: newTx.ticker,
+            classe: "Ação" as Classe,
+            setor: "Geral",
+            quantidade: newTx.quantidade,
+            precoMedio: newTx.precoUnitario,
+            precoAtual: newTx.precoUnitario,
+            dyAno: 0,
+            proventos12m: 0,
+            notaFundamentalista: 0,
+          };
+          
+          supabase.from('ativos').insert([{
+            user_id: user.id,
+            ticker: newTx.ticker,
+            nome: newTx.ticker,
+            setor: "Geral",
+            quantidade: newTx.quantidade,
+            preco_medio: newTx.precoUnitario,
+          }]).then();
+          
+          return [...prev, novoAtivo];
         }
         return prev;
       }
@@ -292,7 +381,6 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         novoPM = novaQtd > 0 ? (totalInvestidoAnterior + totalNovaCompra) / novaQtd : 0;
       } else if (newTx.tipo === "venda") {
         novaQtd = Math.max(0, atual.quantidade - newTx.quantidade);
-        // Na venda, o preço médio histórico de aquisição se mantém
       }
 
       const copy = [...prev];
@@ -300,25 +388,44 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         ...atual,
         quantidade: novaQtd,
         precoMedio: Number(novoPM.toFixed(2)),
-        // Se a transação tem cotação recente, atualiza preço atual
         precoAtual: newTx.precoUnitario || atual.precoAtual,
       };
+      
+      supabase.from('ativos').update({ quantidade: novaQtd, preco_medio: Number(novoPM.toFixed(2)) })
+        .eq('user_id', user.id).eq('ticker', atual.ticker).then();
+
       return copy;
     });
   };
 
-  const deleteTransacao = (id: string) => {
+  const deleteTransacao = async (id: string) => {
+    if (!user) return;
+    await supabase.from('transacoes').delete().eq('id', id);
     setTransacoes((prev) => prev.filter((t) => t.id !== id));
   };
 
   // Ações de Proventos
-  const registrarProvento = (prov: Omit<ProventoRegistro, "id">) => {
-    const id = `prov-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
-    const novo: ProventoRegistro = { ...prov, id, ticker: prov.ticker.toUpperCase().trim() };
+  const registrarProvento = async (prov: Omit<ProventoRegistro, "id">) => {
+    if (!user) return;
+    const formattedTicker = prov.ticker.toUpperCase().trim();
+    
+    const { data, error } = await supabase.from('proventos').insert([{
+      user_id: user.id,
+      ticker: formattedTicker,
+      tipo: prov.tipo,
+      valor_total: prov.valor,
+      data_pagamento: prov.data,
+    }]).select();
+
+    if (error || !data || data.length === 0) return;
+
+    const novo: ProventoRegistro = { ...prov, id: data[0].id, ticker: formattedTicker };
     setProventos((prev) => [novo, ...prev]);
   };
 
-  const deleteProvento = (id: string) => {
+  const deleteProvento = async (id: string) => {
+    if (!user) return;
+    await supabase.from('proventos').delete().eq('id', id);
     setProventos((prev) => prev.filter((p) => p.id !== id));
   };
 
