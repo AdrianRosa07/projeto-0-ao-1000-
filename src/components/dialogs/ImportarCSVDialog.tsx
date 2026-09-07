@@ -74,39 +74,42 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
     });
   };
 
-  const confirmarImportacao = () => {
+  const confirmarImportacao = async () => {
     setIsProcessing(true);
     let importados = 0;
     
-    setTimeout(() => {
-      try {
-        parsedData.forEach((row) => {
-          const ticker = row.Ticker.trim().toUpperCase();
-          const quantidade = parseFloat(row.Quantidade.toString().replace(",", "."));
-          const precoMedio = parseFloat(row["Preço Médio"].toString().replace(",", "."));
+    try {
+      for (const row of parsedData) {
+        const ticker = row.Ticker.trim().toUpperCase();
+        const quantidade = parseFloat(row.Quantidade.toString().replace(",", "."));
+        const precoMedio = parseFloat(row["Preço Médio"].toString().replace(",", "."));
 
-          if (ticker && !isNaN(quantidade) && !isNaN(precoMedio) && quantidade > 0) {
-            registrarTransacao({
-              ticker,
-              tipo: "compra", // Tratando como aporte inicial
-              quantidade,
-              precoUnitario: precoMedio,
-              data: new Date().toISOString().split("T")[0] || "", // Data de hoje
-              taxas: 0,
-              notas: "Importação via CSV",
-            });
-            importados++;
-          }
-        });
-
-        toast.success(`${importados} ativos importados com sucesso!`);
-        resetAndClose();
-      } catch (error) {
-        toast.error("Ocorreu um erro durante a importação.");
-      } finally {
-        setIsProcessing(false);
+        if (ticker && !isNaN(quantidade) && !isNaN(precoMedio) && quantidade > 0) {
+          await registrarTransacao({
+            ticker,
+            tipo: "compra", // Tratando como aporte inicial
+            quantidade,
+            precoUnitario: precoMedio,
+            data: new Date().toISOString().split("T")[0] || "", // Data de hoje
+            taxas: 0,
+            notas: "Importação via CSV",
+          });
+          importados++;
+        }
       }
-    }, 500); // delay pequeno para feedback visual
+
+      if (importados > 0) {
+        toast.success(`${importados} ativos importados com sucesso!`);
+      } else {
+        toast.error("Nenhum ativo válido foi encontrado para importação.");
+      }
+      resetAndClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("Ocorreu um erro durante a importação. Verifique o console.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const resetAndClose = () => {
