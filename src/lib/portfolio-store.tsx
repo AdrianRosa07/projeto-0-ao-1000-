@@ -201,14 +201,14 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
           setAtivos(resAtivos.data.map(a => ({
             ticker: a.ticker,
             nome: a.nome || a.ticker,
-            classe: "Ação", // Provisório, será expandido no banco
+            classe: (a.classe as Classe) || "Ação",
             setor: a.setor || "Geral",
             quantidade: Number(a.quantidade),
             precoMedio: Number(a.preco_medio),
-            precoAtual: Number(a.preco_medio), // será substituído pela cotação
-            dyAno: 0,
-            proventos12m: 0,
-            notaFundamentalista: 0,
+            precoAtual: Number(a.preco_medio),
+            dyAno: a.dy_ano ? Number(a.dy_ano) : 0,
+            proventos12m: a.proventos_12m ? Number(a.proventos_12m) : 0,
+            notaFundamentalista: a.nota_fundamentalista ? Number(a.nota_fundamentalista) : 0,
           })));
         }
 
@@ -259,14 +259,19 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     if (!user) return;
     const formattedTicker = novo.ticker.toUpperCase().trim();
     
-    const { error } = await supabase.from('ativos').insert([{
+    // Upsert para inserir se não existe ou atualizar se existir (evitando duplicação)
+    const { error } = await supabase.from('ativos').upsert({
       user_id: user.id,
       ticker: formattedTicker,
       nome: novo.nome,
+      classe: novo.classe,
       setor: novo.setor,
       quantidade: novo.quantidade,
       preco_medio: novo.precoMedio,
-    }]);
+      dy_ano: novo.dyAno,
+      proventos_12m: novo.proventos12m,
+      nota_fundamentalista: novo.notaFundamentalista,
+    }, { onConflict: 'user_id,ticker' });
 
     if (!error) {
       setAtivos((prev) => {
@@ -288,6 +293,12 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const payload: any = {};
     if (updates.quantidade !== undefined) payload.quantidade = updates.quantidade;
     if (updates.precoMedio !== undefined) payload.preco_medio = updates.precoMedio;
+    if (updates.classe !== undefined) payload.classe = updates.classe;
+    if (updates.dyAno !== undefined) payload.dy_ano = updates.dyAno;
+    if (updates.proventos12m !== undefined) payload.proventos_12m = updates.proventos12m;
+    if (updates.notaFundamentalista !== undefined) payload.nota_fundamentalista = updates.notaFundamentalista;
+    if (updates.nome !== undefined) payload.nome = updates.nome;
+    if (updates.setor !== undefined) payload.setor = updates.setor;
     
     if (Object.keys(payload).length > 0) {
       await supabase.from('ativos').update(payload).eq('user_id', user.id).eq('ticker', searchTicker);
@@ -389,7 +400,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const deleteTransacao = async (id: string) => {
     if (!user) return;
-    await supabase.from('transacoes').delete().eq('id', id);
+    await supabase.from('transacoes').delete().eq('user_id', user.id).eq('id', id);
     setTransacoes((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -414,7 +425,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const deleteProvento = async (id: string) => {
     if (!user) return;
-    await supabase.from('proventos').delete().eq('id', id);
+    await supabase.from('proventos').delete().eq('user_id', user.id).eq('id', id);
     setProventos((prev) => prev.filter((p) => p.id !== id));
   };
 
@@ -592,14 +603,42 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }));
   }, [proventos]);
 
-  // Evolução do patrimônio
+  // Evolução do patrimônio e aportes baseada no histórico de transações
   const evolucaoPatrimonio = useMemo(() => {
-    return getLast12Months().map(mes => ({
-      mes,
-      patrimonio: 0,
-      aportado: 0
-    }));
-  }, []);
+    const months = getLast12Months();
+    
+    const parseMesAnoToDate = (mesAno: string) => {
+       const [mesStr, anoStr] = mesAno.split("/");
+       const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+       const monthIdx = mesesNome.indexOf(mesStr);
+       const year = 2000 + parseInt(anoStr, 10);
+       // Return end of month (dia 0 do mês seguinte)
+       return new Date(year, monthIdx + 1, 0, 23, 59, 59); 
+    };
+
+    return months.map((mes, idx) => {
+      const endOfMonthDate = parseMesAnoToDate(mes);
+      const isCurrentMonth = idx === months.length - 1;
+      
+      let aportadoAteMes = 0;
+      for (const tx of transacoes) {
+        const txDate = new Date(tx.data);
+        if (txDate <= endOfMonthDate) {
+           const valorTx = tx.quantidade * tx.precoUnitario;
+           aportadoAteMes += tx.tipo === "compra" ? valorTx : -valorTx;
+        }
+      }
+      
+      // Previne valores negativos se houver erro de digitação do usuário
+      aportadoAteMes = Math.max(0, aportadoAteMes);
+
+      return {
+        mes,
+        aportado: aportadoAteMes,
+        patrimonio: isCurrentMonth ? Math.max(patrimonio, aportadoAteMes) : aportadoAteMes // Simplificação para meses passados
+      };
+    });
+  }, [transacoes, patrimonio]);
 
   const proventosRecebidos = useMemo(() => {
     return proventos.filter((p) => p.status === "Recebido");
