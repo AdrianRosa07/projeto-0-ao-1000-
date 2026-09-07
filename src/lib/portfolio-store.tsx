@@ -4,15 +4,23 @@ import { useCotacoes } from "../hooks/useCotacoes";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth-store";
 import {
-  ativos as initialAtivos,
   metaPorClasse as initialMetas,
-  evolucaoPatrimonio as initialEvolucao,
-  proventosMensais as initialProventosMensais,
-  proventosRecebidos as initialProventosRecebidos,
-  proximosProventos as initialProximosProventos,
   type Ativo,
   type Classe,
 } from "./portfolio-data";
+
+function getLast12Months() {
+  const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const result = [];
+  const now = new Date();
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const mes = mesesNome[d.getMonth()];
+    const ano = String(d.getFullYear()).slice(-2);
+    result.push(`${mes}/${ano}`);
+  }
+  return result;
+}
 
 export type { Ativo, Classe };
 
@@ -133,8 +141,8 @@ interface PortfolioContextType extends PortfolioState {
   rendaMensal: number;
   yieldOnCost: number;
   alocacaoPorClasse: AlocacaoClasse[];
-  evolucaoPatrimonio: typeof initialEvolucao;
-  proventosMensais: typeof initialProventosMensais;
+  evolucaoPatrimonio: { mes: string; patrimonio: number; aportado: number }[];
+  proventosMensais: { mes: string; valor: number }[];
   proventosRecebidos: ProventoRegistro[];
   proximosProventos: ProventoRegistro[];
   sugerirAporte: (valor: number) => SugestaoAporte[];
@@ -143,25 +151,6 @@ interface PortfolioContextType extends PortfolioState {
 }
 
 const STORAGE_KEY = "rendaviva_portfolio_v1";
-
-const initialProventosNormalized: ProventoRegistro[] = [
-  ...initialProventosRecebidos.map((p, idx) => ({
-    id: `rec-${idx}-${p.ticker}`,
-    data: p.data,
-    ticker: p.ticker,
-    tipo: p.tipo as ProventoRegistro["tipo"],
-    valor: p.valor,
-    status: "Recebido" as const,
-  })),
-  ...initialProximosProventos.map((p, idx) => ({
-    id: `prox-${idx}-${p.ticker}`,
-    data: p.data,
-    ticker: p.ticker,
-    tipo: p.tipo as ProventoRegistro["tipo"],
-    valor: p.valor,
-    status: p.status as ProventoRegistro["status"],
-  })),
-];
 
 const PortfolioContext = createContext<PortfolioContextType | null>(null);
 
@@ -439,9 +428,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   };
 
   const resetDemoData = () => {
-    setAtivos(initialAtivos);
+    setAtivos([]);
     setTransacoes([]);
-    setProventos(initialProventosNormalized);
+    setProventos([]);
     setMetas(initialMetas);
     setModoPrivacidade(false);
     try {
@@ -578,50 +567,39 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   // Histórico de proventos mensais agrupados por data
   const proventosMensais = useMemo(() => {
-    // Agrupar proventos recebidos por mês
     const agregados: Record<string, number> = {};
     for (const p of proventos) {
       if (p.status !== "Recebido") continue;
-      // Tratar data DD/MM/AAAA ou AAAA-MM-DD
       let chaveMes = "";
-      if (p.data.includes("/")) {
-        const parts = p.data.split("/");
-        if (parts.length === 3) {
-          const mesNum = parts[1];
-          const anoCurto = parts[2]!.slice(-2);
-          const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-          const idx = parseInt(mesNum!, 10) - 1;
-          if (idx >= 0 && idx < 12) {
-            chaveMes = `${mesesNome[idx]}/${anoCurto}`;
-          }
-        }
-      } else if (p.data.includes("-")) {
+      if (p.data.includes("-")) {
         const parts = p.data.split("-");
         if (parts.length === 3) {
           const mesNum = parts[1];
-          const anoCurto = parts[0]!.slice(-2);
+          const anoCurto = parts[0].slice(-2);
           const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-          const idx = parseInt(mesNum!, 10) - 1;
+          const idx = parseInt(mesNum, 10) - 1;
           if (idx >= 0 && idx < 12) {
             chaveMes = `${mesesNome[idx]}/${anoCurto}`;
           }
         }
       }
-
-      if (chaveMes) {
-        agregados[chaveMes] = (agregados[chaveMes] ?? 0) + p.valor;
-      }
+      if (chaveMes) agregados[chaveMes] = (agregados[chaveMes] ?? 0) + p.valor;
     }
-
-    // Se temos dados agregados dinâmicos, usamos eles ou mesclamos com o padrão
-    if (Object.keys(agregados).length > 0) {
-      return initialProventosMensais.map((item) => ({
-        mes: item.mes,
-        valor: agregados[item.mes] !== undefined ? agregados[item.mes]! : item.valor,
-      }));
-    }
-    return initialProventosMensais;
+    
+    return getLast12Months().map(mes => ({
+      mes,
+      valor: agregados[mes] || 0
+    }));
   }, [proventos]);
+
+  // Evolução do patrimônio
+  const evolucaoPatrimonio = useMemo(() => {
+    return getLast12Months().map(mes => ({
+      mes,
+      patrimonio: 0,
+      aportado: 0
+    }));
+  }, []);
 
   const proventosRecebidos = useMemo(() => {
     return proventos.filter((p) => p.status === "Recebido");
@@ -673,7 +651,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         rendaMensal,
         yieldOnCost,
         alocacaoPorClasse,
-        evolucaoPatrimonio: initialEvolucao,
+        evolucaoPatrimonio,
         proventosMensais,
         proventosRecebidos,
         proximosProventos,

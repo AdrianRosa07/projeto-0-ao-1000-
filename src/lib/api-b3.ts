@@ -9,6 +9,7 @@ export const fetchQuotes = createServerFn({ method: 'GET' })
 
     try {
       const queryTickers = tickers.map((t) => t.toUpperCase()).join(',');
+      // @ts-ignore
       const token = import.meta.env.VITE_BRAPI_TOKEN;
       
       const url = `https://brapi.dev/api/quote/${queryTickers}${token ? `?token=${token}` : ''}`;
