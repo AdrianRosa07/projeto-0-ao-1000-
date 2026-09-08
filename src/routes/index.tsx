@@ -102,6 +102,8 @@ function Carteira() {
     rendaMensal,
     yieldOnCost,
     alocacaoPorClasse,
+    alocacaoPorSetor,
+    maioresPosicoes,
     evolucaoPatrimonio,
     proventosMensais,
     deleteAtivo,
@@ -183,6 +185,19 @@ function Carteira() {
         </div>
       }
     >
+      {/* Alertas Estratégicos */}
+      {maioresPosicoes.length > 0 && (
+        <div className="mb-6 rounded-2xl border border-primary/20 bg-primary/5 p-4 flex gap-3 text-sm text-primary-foreground">
+          <Info className="size-5 text-primary shrink-0" />
+          <div className="text-foreground">
+            <span className="font-semibold text-primary">Atenção ao risco de concentração:</span> Seus 3 maiores ativos ({maioresPosicoes.map(a => a.ticker).join(", ")}) representam 
+            <strong className="ml-1">
+              {(maioresPosicoes.reduce((acc, a) => acc + a.peso, 0)).toFixed(1)}%
+            </strong> da sua carteira.
+          </div>
+        </div>
+      )}
+
       {/* Cards de Métricas Principais */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard
@@ -210,8 +225,8 @@ function Carteira() {
       </div>
 
       {/* Gráficos Principais */}
-      <div className="mt-6 grid gap-4 lg:grid-cols-3">
-        <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
+      <div className="mt-6 grid gap-4 lg:grid-cols-4">
+        <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2 flex flex-col">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Evolução do patrimônio x aportes</h2>
             <span className="text-xs text-muted-foreground">Histórico mensal</span>
@@ -305,30 +320,121 @@ function Carteira() {
             ))}
           </ul>
         </section>
+
+        {/* Gráfico Alocação por Setor */}
+        <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card flex flex-col">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Alocação por setor</h2>
+            <span className="text-xs text-muted-foreground">
+              {alocacaoPorSetor.length} setores
+            </span>
+          </div>
+          <div className="mt-2 h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={alocacaoPorSetor}
+                  dataKey="valor"
+                  nameKey="setor"
+                  innerRadius={52}
+                  outerRadius={78}
+                  paddingAngle={3}
+                  stroke="none"
+                  isAnimationActive={false}
+                >
+                  {alocacaoPorSetor.map((_, i) => (
+                    <Cell key={i} fill={donutColors[(i + 3) % donutColors.length]} />
+                  ))}
+                </Pie>
+                <Tooltip
+                  contentStyle={tooltipStyle}
+                  formatter={(v: number) => (modoPrivacidade ? "••••••" : brl(v))}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <ul className="mt-3 space-y-2 flex-1 overflow-y-auto pr-1">
+            {alocacaoPorSetor.map((a, i) => (
+              <li key={a.setor} className="flex items-center gap-2 text-sm">
+                <span
+                  className="size-2.5 rounded-full shrink-0"
+                  style={{ background: donutColors[(i + 3) % donutColors.length] }}
+                />
+                <span className="text-muted-foreground truncate">{a.setor}</span>
+                <span className="ml-auto tabular-nums">{a.peso.toFixed(1)}%</span>
+              </li>
+            ))}
+          </ul>
+        </section>
       </div>
 
-      {/* Gráfico de Proventos Mensais */}
-      <section className="mt-6 rounded-2xl border border-border/60 bg-surface p-5 shadow-card">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Proventos recebidos por mês</h2>
-          <span className="text-xs text-muted-foreground">Últimos 12 meses</span>
-        </div>
-        <div className="mt-4 h-56">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={proventosMensais}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-              <XAxis dataKey="mes" {...axis} />
-              <YAxis {...axis} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
-              <Tooltip
-                cursor={{ fill: "var(--color-elevated)" }}
-                contentStyle={tooltipStyle}
-                formatter={(v: number) => [modoPrivacidade ? "••••••" : brl(v), "Proventos"]}
-              />
-              <Bar dataKey="valor" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
+      {/* Gráfico de Proventos Mensais e Metas */}
+      <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold">Proventos recebidos por mês</h2>
+            <span className="text-xs text-muted-foreground">Últimos 12 meses</span>
+          </div>
+          <div className="mt-4 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={proventosMensais}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <XAxis dataKey="mes" {...axis} />
+                <YAxis {...axis} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
+                <Tooltip
+                  cursor={{ fill: "var(--color-elevated)" }}
+                  contentStyle={tooltipStyle}
+                  formatter={(v: number) => [modoPrivacidade ? "••••••" : brl(v), "Proventos"]}
+                />
+                <Bar dataKey="valor" fill="var(--color-primary)" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Projeção de Renda Passiva / Marcos */}
+        <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card flex flex-col justify-between">
+          <div>
+            <h2 className="text-sm font-semibold">Liberdade Financeira</h2>
+            <p className="text-xs text-muted-foreground mt-1">
+              O que sua renda passiva mensal ({formatBrl(rendaMensal)}) já cobre hoje:
+            </p>
+          </div>
+          
+          <div className="mt-4 space-y-4">
+            {[
+              { titulo: "Streaming & Café", valor: 50, icon: "☕" },
+              { titulo: "Luz e Internet", valor: 250, icon: "💡" },
+              { titulo: "Mercado Básico", valor: 800, icon: "🛒" },
+              { titulo: "Aluguel/Moradia", valor: 2500, icon: "🏠" },
+            ].map((marco) => {
+              const atingido = rendaMensal >= marco.valor;
+              const pctCompleto = Math.min(100, (rendaMensal / marco.valor) * 100);
+              
+              return (
+                <div key={marco.titulo} className={`relative flex items-center gap-3 p-3 rounded-lg border ${atingido ? 'border-primary/40 bg-primary/10' : 'border-border bg-elevated/50'}`}>
+                  <span className="text-2xl">{marco.icon}</span>
+                  <div className="flex-1">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className={`text-sm font-medium ${atingido ? 'text-primary' : 'text-muted-foreground'}`}>
+                        {marco.titulo}
+                      </span>
+                      <span className="text-xs font-semibold tabular-nums">{formatBrl(marco.valor)}</span>
+                    </div>
+                    {/* Barra de Progresso */}
+                    <div className="h-1.5 w-full bg-border rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full ${atingido ? 'bg-primary' : 'bg-muted-foreground/30'}`} 
+                        style={{ width: `${pctCompleto}%` }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      </div>
 
       {/* Seção da Tabela de Posições com Filtros e Ações */}
       <section className="mt-6 overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-card">

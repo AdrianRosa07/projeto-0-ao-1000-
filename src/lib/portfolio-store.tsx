@@ -156,8 +156,9 @@ interface PortfolioContextType extends PortfolioState {
   rentabilidade: number;
   rendaAnual: number;
   rendaMensal: number;
-  yieldOnCost: number;
   alocacaoPorClasse: AlocacaoClasse[];
+  alocacaoPorSetor: { setor: string; valor: number; peso: number }[];
+  maioresPosicoes: PosicaoEnriquecida[];
   evolucaoPatrimonio: { mes: string; patrimonio: number; aportado: number }[];
   proventosMensais: { mes: string; valor: number }[];
   proventosRecebidos: ProventoRegistro[];
@@ -614,8 +615,25 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       classe: classe as Classe,
       valor,
       peso: patrimonio > 0 ? (valor / patrimonio) * 100 : 0,
-    }));
+    })).sort((a, b) => b.valor - a.valor);
   }, [posicoes, patrimonio]);
+
+  const alocacaoPorSetor = useMemo(() => {
+    const mapa: Record<string, number> = {};
+    for (const p of posicoes) {
+      const s = p.setor || "Não Informado";
+      mapa[s] = (mapa[s] ?? 0) + p.atual;
+    }
+    return Object.entries(mapa).map(([setor, valor]) => ({
+      setor,
+      valor,
+      peso: patrimonio > 0 ? (valor / patrimonio) * 100 : 0,
+    })).sort((a, b) => b.valor - a.valor);
+  }, [posicoes, patrimonio]);
+
+  const maioresPosicoes = useMemo(() => {
+    return [...posicoes].sort((a, b) => b.atual - a.atual).slice(0, 3);
+  }, [posicoes]);
 
   const sugerirAporte = (valor: number): SugestaoAporte[] => {
     const classes: Classe[] = ["Ação", "FII", "Renda Fixa", "Stock", "REIT"];
@@ -797,6 +815,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         rendaMensal,
         yieldOnCost,
         alocacaoPorClasse,
+        alocacaoPorSetor,
+        maioresPosicoes,
         evolucaoPatrimonio,
         proventosMensais,
         proventosRecebidos,
