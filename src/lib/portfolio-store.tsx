@@ -317,15 +317,15 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const searchTicker = ticker.toUpperCase();
 
     const payload: Record<string, unknown> = {};
-    if (updates.quantidade !== undefined) payload.quantidade = updates.quantidade;
-    if (updates.precoMedio !== undefined) payload.preco_medio = updates.precoMedio;
-    if (updates.classe !== undefined) payload.classe = updates.classe;
-    if (updates.dyAno !== undefined) payload.dy_ano = updates.dyAno;
-    if (updates.proventos12m !== undefined) payload.proventos_12m = updates.proventos12m;
-    if (updates.notaFundamentalista !== undefined)
-      payload.nota_fundamentalista = updates.notaFundamentalista;
-    if (updates.nome !== undefined) payload.nome = updates.nome;
-    if (updates.setor !== undefined) payload.setor = updates.setor;
+    if (updates["quantidade"] !== undefined) payload["quantidade"] = updates["quantidade"];
+    if (updates["precoMedio"] !== undefined) payload["preco_medio"] = updates["precoMedio"];
+    if (updates["classe"] !== undefined) payload["classe"] = updates["classe"];
+    if (updates["dyAno"] !== undefined) payload["dy_ano"] = updates["dyAno"];
+    if (updates["proventos12m"] !== undefined) payload["proventos_12m"] = updates["proventos12m"];
+    if (updates["notaFundamentalista"] !== undefined)
+      payload["nota_fundamentalista"] = updates["notaFundamentalista"];
+    if (updates["nome"] !== undefined) payload["nome"] = updates["nome"];
+    if (updates["setor"] !== undefined) payload["setor"] = updates["setor"];
 
     if (Object.keys(payload).length > 0) {
       await supabase
@@ -644,8 +644,8 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       if (p.data.includes("-")) {
         const parts = p.data.split("-");
         if (parts.length === 3) {
-          const mesNum = parts[1];
-          const anoCurto = parts[0].slice(-2);
+          const mesNum = parts[1] || "";
+          const anoCurto = parts[0]?.slice(-2) || "";
           const mesesNome = [
             "jan",
             "fev",
@@ -695,8 +695,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         "nov",
         "dez",
       ];
-      const monthIdx = mesesNome.indexOf(mesStr);
-      const year = 2000 + parseInt(anoStr, 10);
+      const monthIdx = mesStr ? mesesNome.indexOf(mesStr) : -1;
+      const year = anoStr ? 2000 + parseInt(anoStr, 10) : 2000;
+      if (monthIdx < 0 || monthIdx >= 12) {
+        return new Date(); // fallback
+      }
       // Return end of month (dia 0 do mês seguinte)
       return new Date(year, monthIdx + 1, 0, 23, 59, 59);
     };
