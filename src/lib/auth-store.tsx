@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Session, User } from '@supabase/supabase-js';
-import { supabase } from './supabase';
+import React, { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Session, User } from "@supabase/supabase-js";
+import { supabase } from "./supabase";
 
 interface AuthContextType {
   session: Session | null;
@@ -25,7 +25,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
 
     // Escuta mudanças de auth (login, logout, token refresh)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -48,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (context === undefined) {
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+    throw new Error("useAuth deve ser usado dentro de um AuthProvider");
   }
   return context;
 }

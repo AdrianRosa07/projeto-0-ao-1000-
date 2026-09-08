@@ -133,7 +133,7 @@ function RootShell({ children }: { children: ReactNode }) {
 function AuthWrapper({ children }: { children: ReactNode }) {
   const { session, loading } = useAuth();
   const router = useRouter();
-  
+
   if (loading) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background">
@@ -143,8 +143,8 @@ function AuthWrapper({ children }: { children: ReactNode }) {
     );
   }
 
-  if (!session && router.state.location.pathname !== '/login') {
-    router.navigate({ to: '/login' });
+  if (!session && router.state.location.pathname !== "/login") {
+    router.navigate({ to: "/login" });
     return null;
   }
 

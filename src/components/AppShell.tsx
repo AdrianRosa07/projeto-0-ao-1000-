@@ -79,7 +79,11 @@ export function AppShell({
               title={modoPrivacidade ? "Exibir valores" : "Ocultar valores (privacidade)"}
               className="size-9 rounded-lg text-muted-foreground hover:bg-elevated hover:text-foreground"
             >
-              {modoPrivacidade ? <EyeOff className="size-4 text-warning" /> : <Eye className="size-4" />}
+              {modoPrivacidade ? (
+                <EyeOff className="size-4 text-warning" />
+              ) : (
+                <Eye className="size-4" />
+              )}
             </Button>
 
             <Button
@@ -144,7 +148,8 @@ export function AppShell({
       </main>
 
       <footer className="border-t border-border/60 py-8 text-center text-xs text-muted-foreground">
-        RendaViva · Gestão inteligente de carteira e proventos. Todos os dados são salvos localmente.
+        RendaViva · Gestão inteligente de carteira e proventos. Todos os dados são salvos
+        localmente.
       </footer>
 
       {/* Modais Globais */}

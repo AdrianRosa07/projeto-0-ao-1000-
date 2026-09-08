@@ -112,7 +112,9 @@ function Carteira() {
   // Estados para filtros e busca
   const [busca, setBusca] = useState("");
   const [classeFiltro, setClasseFiltro] = useState<string>("Todas");
-  const [ordenacao, setOrdenacao] = useState<"maior_posicao" | "lucro" | "dy" | "ticker">("maior_posicao");
+  const [ordenacao, setOrdenacao] = useState<"maior_posicao" | "lucro" | "dy" | "ticker">(
+    "maior_posicao",
+  );
 
   // Modais de ação rápida na tabela
   const [ativoParaEditar, setAtivoParaEditar] = useState<Ativo | null>(null);
@@ -174,10 +176,7 @@ function Carteira() {
             <Plus className="size-4" />
             Novo Ativo
           </Button>
-          <Button
-            onClick={() => setOpenImportarDialog(true)}
-            className="gap-1.5"
-          >
+          <Button onClick={() => setOpenImportarDialog(true)} className="gap-1.5">
             <Upload className="size-4" />
             Sincronizar (CSV)
           </Button>
@@ -226,7 +225,11 @@ function Carteira() {
                     <stop offset="100%" stopColor="var(--color-primary)" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="mes" {...axis} />
                 <YAxis {...axis} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
                 <Tooltip
@@ -261,7 +264,9 @@ function Carteira() {
         <section className="rounded-2xl border border-border/60 bg-surface p-5 shadow-card">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">Alocação por classe</h2>
-            <span className="text-xs text-muted-foreground">{alocacaoPorClasse.length} classes</span>
+            <span className="text-xs text-muted-foreground">
+              {alocacaoPorClasse.length} classes
+            </span>
           </div>
           <div className="mt-2 h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -368,7 +373,9 @@ function Carteira() {
             {/* Ordenação */}
             <select
               value={ordenacao}
-              onChange={(e) => setOrdenacao(e.target.value as any)}
+              onChange={(e) =>
+                setOrdenacao(e.target.value as "maior_posicao" | "lucro" | "dy" | "ticker")
+              }
               aria-label="Ordenar posições da carteira"
               className="h-9 rounded-lg border border-border/70 bg-elevated px-2.5 text-xs text-foreground outline-none focus:ring-1 focus:ring-primary"
             >
@@ -514,10 +521,7 @@ function Carteira() {
         onOpenChange={setOpenTransacaoDialog}
         tickerInicial={tickerTransacao}
       />
-      <ImportarCSVDialog 
-        open={openImportarDialog} 
-        onOpenChange={setOpenImportarDialog} 
-      />
+      <ImportarCSVDialog open={openImportarDialog} onOpenChange={setOpenImportarDialog} />
     </AppShell>
   );
 }

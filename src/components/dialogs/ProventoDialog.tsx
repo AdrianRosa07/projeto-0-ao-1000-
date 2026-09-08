@@ -30,12 +30,7 @@ import {
 import { usePortfolio, type ProventoRegistro } from "@/lib/portfolio-store";
 import { toast } from "sonner";
 
-const tiposProvento: ProventoRegistro["tipo"][] = [
-  "Rendimento",
-  "Dividendo",
-  "JCP",
-  "Amortização",
-];
+const tiposProvento: ProventoRegistro["tipo"][] = ["Rendimento", "Dividendo", "JCP", "Amortização"];
 
 const statusOpcoes: ProventoRegistro["status"][] = ["Recebido", "Anunciado", "Previsto"];
 
@@ -122,9 +117,7 @@ export function ProventoDialog({ open, onOpenChange, tickerInicial }: ProventoDi
       valor: valorNum,
     });
 
-    toast.success(
-      `${data.tipo} de R$ ${valorNum.toFixed(2)} registrado para ${cleanTicker}!`,
-    );
+    toast.success(`${data.tipo} de R$ ${valorNum.toFixed(2)} registrado para ${cleanTicker}!`);
 
     onOpenChange(false);
   };

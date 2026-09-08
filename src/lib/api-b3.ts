@@ -1,6 +1,15 @@
-import { createServerFn } from '@tanstack/react-start'
+import { createServerFn } from "@tanstack/react-start";
 
-export const fetchQuotes = createServerFn({ method: 'GET' })
+interface BrapiResult {
+  symbol: string;
+  regularMarketPrice: number;
+}
+
+interface BrapiResponse {
+  results?: BrapiResult[];
+}
+
+export const fetchQuotes = createServerFn({ method: "GET" })
   .validator((tickers: string[]) => tickers)
   .handler(async ({ data: tickers }) => {
     if (!tickers || tickers.length === 0) return {};
@@ -8,11 +17,11 @@ export const fetchQuotes = createServerFn({ method: 'GET' })
     const results: Record<string, number> = {};
 
     try {
-      const queryTickers = tickers.map((t) => t.toUpperCase()).join(',');
-      // @ts-ignore
+      const queryTickers = tickers.map((t) => t.toUpperCase()).join(",");
+      // @ts-expect-error - VITE_BRAPI_TOKEN is defined in .env
       const token = import.meta.env.VITE_BRAPI_TOKEN;
-      
-      const url = `https://brapi.dev/api/quote/${queryTickers}${token ? `?token=${token}` : ''}`;
+
+      const url = `https://brapi.dev/api/quote/${queryTickers}${token ? `?token=${token}` : ""}`;
 
       const response = await fetch(url);
 
@@ -20,17 +29,17 @@ export const fetchQuotes = createServerFn({ method: 'GET' })
         throw new Error(`Brapi retornou status ${response.status}`);
       }
 
-      const json = await response.json();
+      const json = (await response.json()) as BrapiResponse;
 
       if (json.results) {
-        json.results.forEach((item: any) => {
+        json.results.forEach((item) => {
           if (item.symbol) {
             results[item.symbol] = item.regularMarketPrice;
           }
         });
       }
     } catch (error) {
-      console.error('Erro ao buscar cotações na Brapi:', error);
+      console.error("Erro ao buscar cotações na Brapi:", error);
     }
 
     return results;

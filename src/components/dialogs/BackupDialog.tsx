@@ -76,7 +76,8 @@ export function BackupDialog({ open, onOpenChange }: BackupDialogProps) {
         <DialogHeader>
           <DialogTitle>Backup e Gerenciamento de Dados</DialogTitle>
           <DialogDescription>
-            Exporte uma cópia de segurança dos seus investimentos ou restaure dados a qualquer momento.
+            Exporte uma cópia de segurança dos seus investimentos ou restaure dados a qualquer
+            momento.
           </DialogDescription>
         </DialogHeader>
 

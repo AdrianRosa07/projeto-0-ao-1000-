@@ -107,11 +107,13 @@ export function TransacaoDialog({
       // Se não tem no portfólio ainda (para não sobrescrever o preço médio/atual que a pessoa tem na aba)
       const ativo = ativos.find((a) => a.ticker.toUpperCase() === debouncedTicker.toUpperCase());
       if (!ativo && !form.getValues("precoUnitario")) {
-        fetchQuotes({ data: [debouncedTicker] }).then((res) => {
-          if (res[debouncedTicker]) {
-            form.setValue("precoUnitario", res[debouncedTicker]);
-          }
-        }).catch(() => {});
+        fetchQuotes({ data: [debouncedTicker] })
+          .then((res) => {
+            if (res[debouncedTicker]) {
+              form.setValue("precoUnitario", res[debouncedTicker]);
+            }
+          })
+          .catch(() => {});
       }
     }
   }, [debouncedTicker, ativos, form]);
@@ -200,7 +202,7 @@ export function TransacaoDialog({
                 Venda (Desinvestimento)
               </button>
             </div>
-            
+
             {/* Campo oculto para o tipo (para validação do form) */}
             <input type="hidden" {...form.register("tipo")} />
 
@@ -234,7 +236,9 @@ export function TransacaoDialog({
                         <Input
                           placeholder="Ex: PETR4"
                           {...field}
-                          onChange={(e) => handleTickerChange(e.target.value.toUpperCase(), field.onChange)}
+                          onChange={(e) =>
+                            handleTickerChange(e.target.value.toUpperCase(), field.onChange)
+                          }
                         />
                       </FormControl>
                     )}

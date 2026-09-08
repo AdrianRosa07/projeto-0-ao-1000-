@@ -1,16 +1,32 @@
-import React, { createContext, useContext, useEffect, useState, useMemo, type ReactNode } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useMemo,
+  type ReactNode,
+} from "react";
 import { z } from "zod";
 import { useCotacoes } from "../hooks/useCotacoes";
 import { supabase } from "./supabase";
 import { useAuth } from "./auth-store";
-import {
-  metaPorClasse as initialMetas,
-  type Ativo,
-  type Classe,
-} from "./portfolio-data";
+import { metaPorClasse as initialMetas, type Ativo, type Classe } from "./portfolio-data";
 
 function getLast12Months() {
-  const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+  const mesesNome = [
+    "jan",
+    "fev",
+    "mar",
+    "abr",
+    "mai",
+    "jun",
+    "jul",
+    "ago",
+    "set",
+    "out",
+    "nov",
+    "dez",
+  ];
   const result = [];
   const now = new Date();
   for (let i = 11; i >= 0; i--) {
@@ -109,7 +125,6 @@ export const proventoRegistroSchema = z.object({
 
 export const metasSchema = z.record(z.string(), z.number());
 
-
 interface PortfolioContextType extends PortfolioState {
   // Ações de Ativos
   addAtivo: (ativo: Ativo) => Promise<void>;
@@ -164,7 +179,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
   // Hook para buscar cotações em tempo real
-  const { data: cotacoes, isFetching: isLoadingCotacoes } = useCotacoes(ativos.map(a => a.ticker));
+  const { data: cotacoes, isFetching: isLoadingCotacoes } = useCotacoes(
+    ativos.map((a) => a.ticker),
+  );
 
   // Carregar do Supabase e configs locais
   useEffect(() => {
@@ -192,46 +209,52 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     const fetchSupabase = async () => {
       try {
         const [resAtivos, resTx, resProv] = await Promise.all([
-          supabase.from('ativos').select('*').eq('user_id', user.id),
-          supabase.from('transacoes').select('*').eq('user_id', user.id),
-          supabase.from('proventos').select('*').eq('user_id', user.id)
+          supabase.from("ativos").select("*").eq("user_id", user.id),
+          supabase.from("transacoes").select("*").eq("user_id", user.id),
+          supabase.from("proventos").select("*").eq("user_id", user.id),
         ]);
 
         if (resAtivos.data) {
-          setAtivos(resAtivos.data.map(a => ({
-            ticker: a.ticker,
-            nome: a.nome || a.ticker,
-            classe: (a.classe as Classe) || "Ação",
-            setor: a.setor || "Geral",
-            quantidade: Number(a.quantidade),
-            precoMedio: Number(a.preco_medio),
-            precoAtual: Number(a.preco_medio),
-            dyAno: a.dy_ano ? Number(a.dy_ano) : 0,
-            proventos12m: a.proventos_12m ? Number(a.proventos_12m) : 0,
-            notaFundamentalista: a.nota_fundamentalista ? Number(a.nota_fundamentalista) : 0,
-          })));
+          setAtivos(
+            resAtivos.data.map((a) => ({
+              ticker: a.ticker,
+              nome: a.nome || a.ticker,
+              classe: (a.classe as Classe) || "Ação",
+              setor: a.setor || "Geral",
+              quantidade: Number(a.quantidade),
+              precoMedio: Number(a.preco_medio),
+              precoAtual: Number(a.preco_medio),
+              dyAno: a.dy_ano ? Number(a.dy_ano) : 0,
+              proventos12m: a.proventos_12m ? Number(a.proventos_12m) : 0,
+              notaFundamentalista: a.nota_fundamentalista ? Number(a.nota_fundamentalista) : 0,
+            })),
+          );
         }
 
         if (resTx.data) {
-          setTransacoes(resTx.data.map(t => ({
-            id: t.id,
-            data: t.data,
-            ticker: t.ticker,
-            tipo: t.tipo as "compra" | "venda",
-            quantidade: Number(t.quantidade),
-            precoUnitario: Number(t.preco),
-          })));
+          setTransacoes(
+            resTx.data.map((t) => ({
+              id: t.id,
+              data: t.data,
+              ticker: t.ticker,
+              tipo: t.tipo as "compra" | "venda",
+              quantidade: Number(t.quantidade),
+              precoUnitario: Number(t.preco),
+            })),
+          );
         }
 
         if (resProv.data) {
-          setProventos(resProv.data.map(p => ({
-            id: p.id,
-            data: p.data_pagamento,
-            ticker: p.ticker,
-            tipo: p.tipo as ProventoRegistro["tipo"],
-            valor: Number(p.valor_total),
-            status: "Recebido"
-          })));
+          setProventos(
+            resProv.data.map((p) => ({
+              id: p.id,
+              data: p.data_pagamento,
+              ticker: p.ticker,
+              tipo: p.tipo as ProventoRegistro["tipo"],
+              valor: Number(p.valor_total),
+              status: "Recebido",
+            })),
+          );
         }
       } catch (e) {
         console.error("Erro ao carregar dados remotos:", e);
@@ -258,52 +281,60 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const addAtivo = async (novo: Ativo) => {
     if (!user) return;
     const formattedTicker = novo.ticker.toUpperCase().trim();
-    
-    // Upsert para inserir se não existe ou atualizar se existir (evitando duplicação)
-    const { error } = await supabase.from('ativos').upsert({
-      user_id: user.id,
-      ticker: formattedTicker,
-      nome: novo.nome,
-      classe: novo.classe,
-      setor: novo.setor,
-      quantidade: novo.quantidade,
-      preco_medio: novo.precoMedio,
-      dy_ano: novo.dyAno,
-      proventos_12m: novo.proventos12m,
-      nota_fundamentalista: novo.notaFundamentalista,
-    }, { onConflict: 'user_id,ticker' });
 
-    if (!error) {
-      setAtivos((prev) => {
-        const index = prev.findIndex((a) => a.ticker.toUpperCase() === formattedTicker);
-        if (index >= 0) {
-          const copy = [...prev];
-          copy[index] = { ...novo, ticker: formattedTicker };
-          return copy;
-        }
-        return [...prev, { ...novo, ticker: formattedTicker }];
-      });
+    const { error } = await supabase.from("ativos").upsert(
+      {
+        user_id: user.id,
+        ticker: formattedTicker,
+        nome: novo.nome,
+        classe: novo.classe,
+        setor: novo.setor,
+        quantidade: novo.quantidade,
+        preco_medio: novo.precoMedio,
+        dy_ano: novo.dyAno,
+        proventos_12m: novo.proventos12m,
+        nota_fundamentalista: novo.notaFundamentalista,
+      },
+      { onConflict: "user_id,ticker" },
+    );
+
+    if (error) {
+      throw new Error(error.message);
     }
+    setAtivos((prev) => {
+      const index = prev.findIndex((a) => a.ticker.toUpperCase() === formattedTicker);
+      if (index >= 0) {
+        const copy = [...prev];
+        copy[index] = { ...novo, ticker: formattedTicker };
+        return copy;
+      }
+      return [...prev, { ...novo, ticker: formattedTicker }];
+    });
   };
 
   const updateAtivo = async (ticker: string, updates: Partial<Ativo>) => {
     if (!user) return;
     const searchTicker = ticker.toUpperCase();
-    
-    const payload: any = {};
+
+    const payload: Record<string, unknown> = {};
     if (updates.quantidade !== undefined) payload.quantidade = updates.quantidade;
     if (updates.precoMedio !== undefined) payload.preco_medio = updates.precoMedio;
     if (updates.classe !== undefined) payload.classe = updates.classe;
     if (updates.dyAno !== undefined) payload.dy_ano = updates.dyAno;
     if (updates.proventos12m !== undefined) payload.proventos_12m = updates.proventos12m;
-    if (updates.notaFundamentalista !== undefined) payload.nota_fundamentalista = updates.notaFundamentalista;
+    if (updates.notaFundamentalista !== undefined)
+      payload.nota_fundamentalista = updates.notaFundamentalista;
     if (updates.nome !== undefined) payload.nome = updates.nome;
     if (updates.setor !== undefined) payload.setor = updates.setor;
-    
+
     if (Object.keys(payload).length > 0) {
-      await supabase.from('ativos').update(payload).eq('user_id', user.id).eq('ticker', searchTicker);
+      await supabase
+        .from("ativos")
+        .update(payload)
+        .eq("user_id", user.id)
+        .eq("ticker", searchTicker);
     }
-    
+
     setAtivos((prev) =>
       prev.map((a) => (a.ticker.toUpperCase() === searchTicker ? { ...a, ...updates } : a)),
     );
@@ -312,7 +343,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const deleteAtivo = async (ticker: string) => {
     if (!user) return;
     const searchTicker = ticker.toUpperCase();
-    await supabase.from('ativos').delete().eq('user_id', user.id).eq('ticker', searchTicker);
+    await supabase.from("ativos").delete().eq("user_id", user.id).eq("ticker", searchTicker);
     setAtivos((prev) => prev.filter((a) => a.ticker.toUpperCase() !== searchTicker));
   };
 
@@ -320,19 +351,26 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const registrarTransacao = async (tx: Omit<Transacao, "id">) => {
     if (!user) return;
     const formattedTicker = tx.ticker.toUpperCase().trim();
-    
-    const { data, error } = await supabase.from('transacoes').insert([{
-      user_id: user.id,
-      ticker: formattedTicker,
-      tipo: tx.tipo,
-      quantidade: tx.quantidade,
-      preco: tx.precoUnitario,
-      data: tx.data
-    }]).select();
 
-    if (error || !data || data.length === 0) {
-      console.error(error);
-      return;
+    const { data, error } = await supabase
+      .from("transacoes")
+      .insert([
+        {
+          user_id: user.id,
+          ticker: formattedTicker,
+          tipo: tx.tipo,
+          quantidade: tx.quantidade,
+          preco: tx.precoUnitario,
+          data: tx.data,
+        },
+      ])
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (!data || data.length === 0) {
+      throw new Error("Transação não retornou dados após inserção");
     }
 
     const newTx: Transacao = { ...tx, id: data[0].id, ticker: formattedTicker };
@@ -355,16 +393,21 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
             proventos12m: 0,
             notaFundamentalista: 0,
           };
-          
-          supabase.from('ativos').insert([{
-            user_id: user.id,
-            ticker: newTx.ticker,
-            nome: newTx.ticker,
-            setor: "Geral",
-            quantidade: newTx.quantidade,
-            preco_medio: newTx.precoUnitario,
-          }]).then();
-          
+
+          supabase
+            .from("ativos")
+            .insert([
+              {
+                user_id: user.id,
+                ticker: newTx.ticker,
+                nome: newTx.ticker,
+                setor: "Geral",
+                quantidade: newTx.quantidade,
+                preco_medio: newTx.precoUnitario,
+              },
+            ])
+            .then();
+
           return [...prev, novoAtivo];
         }
         return prev;
@@ -390,9 +433,13 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         precoMedio: Number(novoPM.toFixed(2)),
         precoAtual: newTx.precoUnitario || atual.precoAtual,
       };
-      
-      supabase.from('ativos').update({ quantidade: novaQtd, preco_medio: Number(novoPM.toFixed(2)) })
-        .eq('user_id', user.id).eq('ticker', atual.ticker).then();
+
+      supabase
+        .from("ativos")
+        .update({ quantidade: novaQtd, preco_medio: Number(novoPM.toFixed(2)) })
+        .eq("user_id", user.id)
+        .eq("ticker", atual.ticker)
+        .then();
 
       return copy;
     });
@@ -400,7 +447,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const deleteTransacao = async (id: string) => {
     if (!user) return;
-    await supabase.from('transacoes').delete().eq('user_id', user.id).eq('id', id);
+    await supabase.from("transacoes").delete().eq("user_id", user.id).eq("id", id);
     setTransacoes((prev) => prev.filter((t) => t.id !== id));
   };
 
@@ -408,16 +455,26 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const registrarProvento = async (prov: Omit<ProventoRegistro, "id">) => {
     if (!user) return;
     const formattedTicker = prov.ticker.toUpperCase().trim();
-    
-    const { data, error } = await supabase.from('proventos').insert([{
-      user_id: user.id,
-      ticker: formattedTicker,
-      tipo: prov.tipo,
-      valor_total: prov.valor,
-      data_pagamento: prov.data,
-    }]).select();
 
-    if (error || !data || data.length === 0) return;
+    const { data, error } = await supabase
+      .from("proventos")
+      .insert([
+        {
+          user_id: user.id,
+          ticker: formattedTicker,
+          tipo: prov.tipo,
+          valor_total: prov.valor,
+          data_pagamento: prov.data,
+        },
+      ])
+      .select();
+
+    if (error) {
+      throw new Error(error.message);
+    }
+    if (!data || data.length === 0) {
+      throw new Error("Provento não retornou dados após inserção");
+    }
 
     const novo: ProventoRegistro = { ...prov, id: data[0].id, ticker: formattedTicker };
     setProventos((prev) => [novo, ...prev]);
@@ -425,7 +482,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
   const deleteProvento = async (id: string) => {
     if (!user) return;
-    await supabase.from('proventos').delete().eq('user_id', user.id).eq('id', id);
+    await supabase.from("proventos").delete().eq("user_id", user.id).eq("id", id);
     setProventos((prev) => prev.filter((p) => p.id !== id));
   };
 
@@ -446,7 +503,9 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     setModoPrivacidade(false);
     try {
       localStorage.removeItem(STORAGE_KEY);
-    } catch {}
+    } catch (e) {
+      console.warn("Failed to remove localStorage:", e);
+    }
   };
 
   const exportData = () => {
@@ -464,23 +523,23 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const importData = (jsonStr: string): boolean => {
     try {
       const parsed = JSON.parse(jsonStr);
-      
+
       const ativosParsed = z.array(ativoSchema).safeParse(parsed.ativos);
       if (ativosParsed.success) setAtivos(ativosParsed.data);
       else throw new Error("Ativos inválidos no JSON importado");
-      
+
       const transacoesParsed = z.array(transacaoSchema).safeParse(parsed.transacoes);
       if (transacoesParsed.success) setTransacoes(transacoesParsed.data);
       else throw new Error("Transações inválidas no JSON importado");
-      
+
       const proventosParsed = z.array(proventoRegistroSchema).safeParse(parsed.proventos);
       if (proventosParsed.success) setProventos(proventosParsed.data);
       else throw new Error("Proventos inválidos no JSON importado");
-      
+
       const metasParsed = metasSchema.safeParse(parsed.metas);
       if (metasParsed.success) setMetas(metasParsed.data);
       else throw new Error("Metas inválidas no JSON importado");
-      
+
       return true;
     } catch (e) {
       console.error("Erro ao importar JSON:", e);
@@ -587,7 +646,20 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         if (parts.length === 3) {
           const mesNum = parts[1];
           const anoCurto = parts[0].slice(-2);
-          const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+          const mesesNome = [
+            "jan",
+            "fev",
+            "mar",
+            "abr",
+            "mai",
+            "jun",
+            "jul",
+            "ago",
+            "set",
+            "out",
+            "nov",
+            "dez",
+          ];
           const idx = parseInt(mesNum, 10) - 1;
           if (idx >= 0 && idx < 12) {
             chaveMes = `${mesesNome[idx]}/${anoCurto}`;
@@ -596,46 +668,59 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       }
       if (chaveMes) agregados[chaveMes] = (agregados[chaveMes] ?? 0) + p.valor;
     }
-    
-    return getLast12Months().map(mes => ({
+
+    return getLast12Months().map((mes) => ({
       mes,
-      valor: agregados[mes] || 0
+      valor: agregados[mes] || 0,
     }));
   }, [proventos]);
 
   // Evolução do patrimônio e aportes baseada no histórico de transações
   const evolucaoPatrimonio = useMemo(() => {
     const months = getLast12Months();
-    
+
     const parseMesAnoToDate = (mesAno: string) => {
-       const [mesStr, anoStr] = mesAno.split("/");
-       const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
-       const monthIdx = mesesNome.indexOf(mesStr);
-       const year = 2000 + parseInt(anoStr, 10);
-       // Return end of month (dia 0 do mês seguinte)
-       return new Date(year, monthIdx + 1, 0, 23, 59, 59); 
+      const [mesStr, anoStr] = mesAno.split("/");
+      const mesesNome = [
+        "jan",
+        "fev",
+        "mar",
+        "abr",
+        "mai",
+        "jun",
+        "jul",
+        "ago",
+        "set",
+        "out",
+        "nov",
+        "dez",
+      ];
+      const monthIdx = mesesNome.indexOf(mesStr);
+      const year = 2000 + parseInt(anoStr, 10);
+      // Return end of month (dia 0 do mês seguinte)
+      return new Date(year, monthIdx + 1, 0, 23, 59, 59);
     };
 
     return months.map((mes, idx) => {
       const endOfMonthDate = parseMesAnoToDate(mes);
       const isCurrentMonth = idx === months.length - 1;
-      
+
       let aportadoAteMes = 0;
       for (const tx of transacoes) {
         const txDate = new Date(tx.data);
         if (txDate <= endOfMonthDate) {
-           const valorTx = tx.quantidade * tx.precoUnitario;
-           aportadoAteMes += tx.tipo === "compra" ? valorTx : -valorTx;
+          const valorTx = tx.quantidade * tx.precoUnitario;
+          aportadoAteMes += tx.tipo === "compra" ? valorTx : -valorTx;
         }
       }
-      
+
       // Previne valores negativos se houver erro de digitação do usuário
       aportadoAteMes = Math.max(0, aportadoAteMes);
 
       return {
         mes,
         aportado: aportadoAteMes,
-        patrimonio: isCurrentMonth ? Math.max(patrimonio, aportadoAteMes) : aportadoAteMes // Simplificação para meses passados
+        patrimonio: isCurrentMonth ? Math.max(patrimonio, aportadoAteMes) : aportadoAteMes, // Simplificação para meses passados
       };
     });
   }, [transacoes, patrimonio]);

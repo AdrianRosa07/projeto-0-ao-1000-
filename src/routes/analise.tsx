@@ -120,7 +120,8 @@ function Analise() {
           <PieIcon className="mx-auto size-12 text-muted-foreground/40" />
           <h3 className="mt-3 text-lg font-semibold">Nenhum ativo cadastrado</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Cadastre seus investimentos para visualizar o radar fundamentalista e a análise de dispersão.
+            Cadastre seus investimentos para visualizar o radar fundamentalista e a análise de
+            dispersão.
           </p>
         </div>
       ) : (

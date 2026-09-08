@@ -4,14 +4,14 @@ import { fetchQuotes } from "@/lib/api-b3";
 export function useCotacoes(tickers: string[]) {
   // Limpa e deduplica os tickers
   const tickersUnicos = Array.from(
-    new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean))
+    new Set(tickers.map((t) => t.trim().toUpperCase()).filter(Boolean)),
   );
 
   return useQuery({
     queryKey: ["cotacoes", tickersUnicos],
     queryFn: async () => {
       if (tickersUnicos.length === 0) return {};
-      
+
       try {
         const results = await fetchQuotes({ data: tickersUnicos });
         return results;

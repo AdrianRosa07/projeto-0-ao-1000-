@@ -29,15 +29,8 @@ export const Route = createFileRoute("/aportes")({
 });
 
 function Aportes() {
-  const {
-    posicoes,
-    patrimonio,
-    rendaMensal,
-    metas,
-    sugerirAporte,
-    formatBrl,
-    ativos,
-  } = usePortfolio();
+  const { posicoes, patrimonio, rendaMensal, metas, sugerirAporte, formatBrl, ativos } =
+    usePortfolio();
 
   const [valor, setValor] = useState(3000);
   const [metaRenda, setMetaRenda] = useState(8000);
@@ -162,10 +155,11 @@ function Aportes() {
           </div>
 
           <div className="mt-4 rounded-xl border border-border/60 bg-elevated/40 p-4 text-sm leading-relaxed text-muted-foreground">
-            Com aporte mensal de <strong className="text-foreground">{formatBrl(valor || 0)}</strong> e
-            reinvestimento total dos proventos a uma taxa conservadora de{" "}
-            <strong className="text-foreground">{taxaMensalPct}% ao mês</strong>, você alcançará sua renda
-            de <strong className="text-foreground">{formatBrl(metaRenda)}/mês</strong> em{" "}
+            Com aporte mensal de{" "}
+            <strong className="text-foreground">{formatBrl(valor || 0)}</strong> e reinvestimento
+            total dos proventos a uma taxa conservadora de{" "}
+            <strong className="text-foreground">{taxaMensalPct}% ao mês</strong>, você alcançará sua
+            renda de <strong className="text-foreground">{formatBrl(metaRenda)}/mês</strong> em{" "}
             <strong className="text-primary">
               {mesesTotal >= 600 ? "mais de 50 anos" : `${anos} anos e ${restoMeses} meses`}
             </strong>
@@ -221,7 +215,9 @@ function Aportes() {
                 />
 
                 <div className="mt-1.5 flex justify-between text-xs text-muted-foreground">
-                  <span>{s.meta > 0 ? `${((s.peso / s.meta) * 100).toFixed(0)}% da meta atingida` : "-"}</span>
+                  <span>
+                    {s.meta > 0 ? `${((s.peso / s.meta) * 100).toFixed(0)}% da meta atingida` : "-"}
+                  </span>
                   <span>{s.falta > 0 ? `faltam ${formatBrl(s.falta)}` : "alinhado à meta"}</span>
                 </div>
               </li>
@@ -235,7 +231,9 @@ function Aportes() {
         <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
           <div>
             <h2 className="text-sm font-semibold">Suas Metas por Classe</h2>
-            <p className="text-xs text-muted-foreground">Comparativo atual vs objetivo estipulado</p>
+            <p className="text-xs text-muted-foreground">
+              Comparativo atual vs objetivo estipulado
+            </p>
           </div>
           <Button
             size="sm"
@@ -251,9 +249,7 @@ function Aportes() {
           {Object.entries(metas).map(([classe, meta]) => {
             const atual =
               patrimonio > 0
-                ? (posicoes
-                    .filter((p) => p.classe === classe)
-                    .reduce((s, p) => s + p.atual, 0) /
+                ? (posicoes.filter((p) => p.classe === classe).reduce((s, p) => s + p.atual, 0) /
                     patrimonio) *
                   100
                 : 0;

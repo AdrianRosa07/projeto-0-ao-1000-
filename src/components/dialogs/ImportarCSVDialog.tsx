@@ -18,15 +18,24 @@ interface ImportarCSVDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-interface CsvRow {
-  Ticker: string;
-  Quantidade: string;
-  "Preço Médio": string;
+// Mapeamento de possíveis nomes de colunas (normalizado para lowercase)
+const COLUNAS_TICKER = ["ticker", "codigo", "código", "ativo", "symbol", "simbolo", "símbolo"];
+const COLUNAS_QTD = ["quantidade", "qtd", "qty", "qtde"];
+const COLUNAS_PM = ["preço médio", "preco medio", "preço medio", "preco médio", "pm", "preco_medio", "preço_medio", "custo medio", "custo médio", "preco medio unitario", "preço médio unitário"];
+
+interface CsvRowRaw {
+  [key: string]: string;
+}
+
+interface CsvRowNormalized {
+  ticker: string;
+  quantidade: string;
+  precoMedio: string;
 }
 
 export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps) {
   const { registrarTransacao } = usePortfolio();
-  const [parsedData, setParsedData] = useState<CsvRow[]>([]);
+  const [parsedData, setParsedData] = useState<CsvRowNormalized[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -43,30 +52,81 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
     document.body.removeChild(link);
   };
 
+  const normalizeHeaders = (headers: string[]): string[] => {
+    return headers.map((h) =>
+      h
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "") // remove acentos
+        .replace(/\s+/g, " ")
+    );
+  };
+
+  const findColumn = (headers: string[], possibleNames: string[]): string | null => {
+    const normalizedHeaders = normalizeHeaders(headers);
+    const normalizedNames = possibleNames.map((n) =>
+      n.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    );
+    for (let i = 0; i < normalizedHeaders.length; i++) {
+      if (normalizedNames.includes(normalizedHeaders[i])) {
+        return headers[i]; // retorna o header original
+      }
+    }
+    return null;
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    Papa.parse<CsvRow>(file, {
+    Papa.parse<CsvRowRaw>(file, {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        // Filtra linhas vazias ou sem Ticker
-        const validRows = results.data.filter((row) => row.Ticker && row.Ticker.trim() !== "");
-        
-        if (validRows.length === 0) {
-          toast.error("O arquivo CSV parece estar vazio ou no formato incorreto.");
+        const rows = results.data;
+        if (rows.length === 0) {
+          toast.error("O arquivo CSV parece estar vazio.");
           return;
         }
 
-        // Verifica se tem as colunas corretas baseando na primeira linha válida
-        const firstRow = validRows[0];
-        if (!firstRow || !("Ticker" in firstRow) || !("Quantidade" in firstRow) || !("Preço Médio" in firstRow)) {
-          toast.error("Colunas inválidas. Certifique-se de usar: Ticker, Quantidade, Preço Médio");
+        // Detecta automaticamente as colunas
+        const headers = results.meta.fields || [];
+        if (!headers.length) {
+          toast.error("Não foi possível ler o cabeçalho do CSV.");
+          return;
+        }
+
+        const tickerCol = findColumn(headers, COLUNAS_TICKER);
+        const qtdCol = findColumn(headers, COLUNAS_QTD);
+        const pmCol = findColumn(headers, COLUNAS_PM);
+
+        if (!tickerCol || !qtdCol || !pmCol) {
+          toast.error(
+            `Colunas não reconhecidas. Encontradas: ${headers.join(", ")}.\n` +
+              `Esperado: Ticker (${COLUNAS_TICKER.join("/")}), Quantidade (${COLUNAS_QTD.join("/")}), Preço Médio (${COLUNAS_PM.join("/")})`
+          );
+          return;
+        }
+
+        const validRows: CsvRowNormalized[] = rows
+          .filter((row) => row[tickerCol] && row[tickerCol].trim() !== "")
+          .map((row) => ({
+            ticker: row[tickerCol].trim(),
+            quantidade: row[qtdCol]?.trim() || "0",
+            precoMedio: row[pmCol]?.trim() || "0",
+          }))
+          .filter((row) => row.ticker && parseFloat(row.quantidade.replace(",", ".")) > 0);
+
+        if (validRows.length === 0) {
+          toast.error("Nenhum ativo válido encontrado no CSV.");
           return;
         }
 
         setParsedData(validRows);
+        toast.success(
+          `${validRows.length} ativos lidos! Colunas detectadas: ${tickerCol}, ${qtdCol}, ${pmCol}`
+        );
       },
       error: (error) => {
         toast.error("Erro ao ler o arquivo CSV: " + error.message);
@@ -77,12 +137,12 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
   const confirmarImportacao = async () => {
     setIsProcessing(true);
     let importados = 0;
-    
+
     try {
       for (const row of parsedData) {
-        const ticker = row.Ticker.trim().toUpperCase();
-        const quantidade = parseFloat(row.Quantidade.toString().replace(",", "."));
-        const precoMedio = parseFloat(row["Preço Médio"].toString().replace(",", "."));
+        const ticker = row.ticker.trim().toUpperCase();
+        const quantidade = parseFloat(row.quantidade.replace(",", "."));
+        const precoMedio = parseFloat(row.precoMedio.replace(",", "."));
 
         if (ticker && !isNaN(quantidade) && !isNaN(precoMedio) && quantidade > 0) {
           await registrarTransacao({
@@ -106,7 +166,8 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
       resetAndClose();
     } catch (error) {
       console.error(error);
-      toast.error("Ocorreu um erro durante a importação. Verifique o console.");
+      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
+      toast.error(`Erro: ${errorMessage}`);
     } finally {
       setIsProcessing(false);
     }
@@ -120,10 +181,13 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
   };
 
   return (
-    <Dialog open={open} onOpenChange={(val) => {
-      if (!val) resetAndClose();
-      else onOpenChange(val);
-    }}>
+    <Dialog
+      open={open}
+      onOpenChange={(val) => {
+        if (!val) resetAndClose();
+        else onOpenChange(val);
+      }}
+    >
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Sincronização via CSV</DialogTitle>
@@ -137,16 +201,27 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
             <AlertCircle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
             <div>
               <p className="mb-2 text-foreground font-medium">Como formatar seu CSV:</p>
-              <p>Baixe o modelo abaixo e preencha com seus dados, ou exporte de sua corretora mantendo exatamente estas 3 colunas (com cabeçalho):</p>
+              <p>
+                Baixe o modelo abaixo e preencha com seus dados, ou exporte de sua corretora.
+                O sistema detecta automaticamente as colunas (aceita variações como:
+                <strong> Ticker/Código/Ativo</strong>, <strong> Quantidade/Qtd</strong>,
+                <strong> Preço Médio/PM/Custo Médio</strong>).
+              </p>
               <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
-                <li><strong>Ticker</strong>: Código do ativo (ex: PETR4)</li>
-                <li><strong>Quantidade</strong>: Total de cotas</li>
-                <li><strong>Preço Médio</strong>: Seu custo médio por cota</li>
+                <li>
+                  <strong>Ticker</strong>: Código do ativo (ex: PETR4)
+                </li>
+                <li>
+                  <strong>Quantidade</strong>: Total de cotas
+                </li>
+                <li>
+                  <strong>Preço Médio</strong>: Seu custo médio por cota
+                </li>
               </ul>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3 w-full" 
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
                 onClick={downloadTemplate}
               >
                 <Download className="w-4 h-4 mr-2" />
@@ -160,9 +235,7 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
               <Upload className="w-10 h-10 text-muted-foreground mb-4" />
               <p className="text-sm font-medium mb-1">Selecione o seu arquivo CSV</p>
               <p className="text-xs text-muted-foreground mb-4">Apenas arquivos .csv</p>
-              <Button onClick={() => fileInputRef.current?.click()}>
-                Procurar Arquivo
-              </Button>
+              <Button onClick={() => fileInputRef.current?.click()}>Procurar Arquivo</Button>
               <input
                 type="file"
                 accept=".csv"
@@ -174,7 +247,9 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
           ) : (
             <div className="space-y-4">
               <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 text-center">
-                <p className="font-semibold text-primary">{parsedData.length} ativos lidos com sucesso!</p>
+                <p className="font-semibold text-primary">
+                  {parsedData.length} ativos lidos com sucesso!
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">
                   Revise e confirme para adicionar estes ativos (como aportes) à sua carteira atual.
                 </p>
@@ -191,14 +266,17 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
                   <tbody className="divide-y divide-border">
                     {parsedData.slice(0, 5).map((row, i) => (
                       <tr key={i}>
-                        <td className="p-2 font-mono text-xs">{row.Ticker}</td>
-                        <td className="p-2 text-right">{row.Quantidade}</td>
-                        <td className="p-2 text-right">{row["Preço Médio"]}</td>
+                        <td className="p-2 font-mono text-xs">{row.ticker}</td>
+                        <td className="p-2 text-right">{row.quantidade}</td>
+                        <td className="p-2 text-right">{row.precoMedio}</td>
                       </tr>
                     ))}
                     {parsedData.length > 5 && (
                       <tr>
-                        <td colSpan={3} className="p-2 text-center text-xs text-muted-foreground italic">
+                        <td
+                          colSpan={3}
+                          className="p-2 text-center text-xs text-muted-foreground italic"
+                        >
                           ... e mais {parsedData.length - 5} ativos.
                         </td>
                       </tr>

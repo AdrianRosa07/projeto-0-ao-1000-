@@ -150,7 +150,11 @@ function Proventos() {
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={proventosMensais}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="mes" {...axis} />
                 <YAxis {...axis} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
                 <Tooltip
@@ -172,7 +176,11 @@ function Proventos() {
           <div className="mt-4 h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={acumulado}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--color-border)"
+                  vertical={false}
+                />
                 <XAxis dataKey="mes" {...axis} />
                 <YAxis {...axis} tickFormatter={(v: number) => `${Math.round(v / 1000)}k`} />
                 <Tooltip
@@ -234,7 +242,9 @@ function Proventos() {
         <section className="overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-card">
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <h2 className="text-sm font-semibold">Últimos recebimentos</h2>
-            <span className="text-xs text-muted-foreground">{recebidosFiltrados.length} lançamentos</span>
+            <span className="text-xs text-muted-foreground">
+              {recebidosFiltrados.length} lançamentos
+            </span>
           </div>
 
           {recebidosFiltrados.length === 0 ? (
@@ -273,7 +283,9 @@ function Proventos() {
         <section className="overflow-hidden rounded-2xl border border-border/60 bg-surface shadow-card">
           <div className="flex items-center justify-between border-b border-border/60 px-5 py-4">
             <h2 className="text-sm font-semibold">Calendário dos próximos pagamentos</h2>
-            <span className="text-xs text-muted-foreground">{proximosFiltrados.length} agendados</span>
+            <span className="text-xs text-muted-foreground">
+              {proximosFiltrados.length} agendados
+            </span>
           </div>
 
           {proximosFiltrados.length === 0 ? (

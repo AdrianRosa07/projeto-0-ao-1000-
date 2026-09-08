@@ -1,26 +1,26 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/lib/auth-store';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from 'sonner';
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/lib/auth-store";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
-export const Route = createFileRoute('/login')({
+export const Route = createFileRoute("/login")({
   component: Login,
 });
 
 function Login() {
   const { session } = useAuth();
   const navigate = useNavigate();
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
 
   // Redireciona se já estiver logado
   if (session) {
-    navigate({ to: '/' });
+    navigate({ to: "/" });
     return null;
   }
 
@@ -32,15 +32,16 @@ function Login() {
       if (isSignUp) {
         const { error } = await supabase.auth.signUp({ email, password });
         if (error) throw error;
-        toast.success('Conta criada! Verifique seu email para confirmar.');
+        toast.success("Conta criada! Verifique seu email para confirmar.");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        toast.success('Login realizado com sucesso!');
-        navigate({ to: '/' });
+        toast.success("Login realizado com sucesso!");
+        navigate({ to: "/" });
       }
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao autenticar');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao autenticar";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -48,10 +49,11 @@ function Login() {
 
   const handleGoogleLogin = async () => {
     try {
-      const { error } = await supabase.auth.signInWithOAuth({ provider: 'google' });
+      const { error } = await supabase.auth.signInWithOAuth({ provider: "google" });
       if (error) throw error;
-    } catch (error: any) {
-      toast.error(error.message || 'Erro ao logar com Google');
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Erro ao logar com Google";
+      toast.error(message);
     }
   };
 
@@ -61,7 +63,7 @@ function Login() {
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-foreground">AGF 2.0</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            {isSignUp ? 'Crie sua conta para começar' : 'Faça login na sua conta'}
+            {isSignUp ? "Crie sua conta para começar" : "Faça login na sua conta"}
           </p>
         </div>
 
@@ -90,7 +92,7 @@ function Login() {
           </div>
 
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? 'Aguarde...' : isSignUp ? 'Criar Conta' : 'Entrar'}
+            {isLoading ? "Aguarde..." : isSignUp ? "Criar Conta" : "Entrar"}
           </Button>
         </form>
 
@@ -106,14 +108,14 @@ function Login() {
 
         <div className="mt-6 text-center text-sm">
           <span className="text-muted-foreground">
-            {isSignUp ? 'Já tem uma conta? ' : 'Não tem uma conta? '}
+            {isSignUp ? "Já tem uma conta? " : "Não tem uma conta? "}
           </span>
           <button
             type="button"
             onClick={() => setIsSignUp(!isSignUp)}
             className="font-semibold text-primary hover:underline"
           >
-            {isSignUp ? 'Fazer login' : 'Cadastre-se'}
+            {isSignUp ? "Fazer login" : "Cadastre-se"}
           </button>
         </div>
       </div>

@@ -1,13 +1,13 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from "@supabase/supabase-js";
 
-// @ts-ignore
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
-// @ts-ignore
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+// @ts-expect-error - VITE_SUPABASE_URL is defined in .env
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || "";
+// @ts-expect-error - VITE_SUPABASE_ANON_KEY is defined in .env
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || "";
 
 if (!supabaseUrl || !supabaseAnonKey) {
   console.warn(
-    'Supabase credentials are missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.'
+    "Supabase credentials are missing. Please add VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to your .env file.",
   );
 }
 

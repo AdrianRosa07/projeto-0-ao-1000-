@@ -61,7 +61,9 @@ export function MetasDialog({ open, onOpenChange }: MetasDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!isValid) {
-      toast.error(`A soma das metas deve ser exatamente 100% (atualmente está em ${total.toFixed(0)}%).`);
+      toast.error(
+        `A soma das metas deve ser exatamente 100% (atualmente está em ${total.toFixed(0)}%).`,
+      );
       return;
     }
     updateMetas(valores);
@@ -75,7 +77,8 @@ export function MetasDialog({ open, onOpenChange }: MetasDialogProps) {
         <DialogHeader>
           <DialogTitle>Metas de Alocação por Classe</DialogTitle>
           <DialogDescription>
-            Defina o percentual ideal de cada classe. O algoritmo de sugestão de aportes usará essas metas para rebalancear sua carteira.
+            Defina o percentual ideal de cada classe. O algoritmo de sugestão de aportes usará essas
+            metas para rebalancear sua carteira.
           </DialogDescription>
         </DialogHeader>
 
@@ -134,9 +137,7 @@ export function MetasDialog({ open, onOpenChange }: MetasDialogProps) {
               )}
               <span>Soma total:</span>
             </div>
-            <span className="text-base font-semibold tabular-nums">
-              {total.toFixed(0)}% / 100%
-            </span>
+            <span className="text-base font-semibold tabular-nums">{total.toFixed(0)}% / 100%</span>
           </div>
 
           <DialogFooter className="pt-2">

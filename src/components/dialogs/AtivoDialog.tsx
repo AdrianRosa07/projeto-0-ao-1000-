@@ -115,17 +115,19 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
 
   useEffect(() => {
     if (debouncedTicker.length >= 4 && !ativoParaEditar) {
-      fetchQuotes({ data: [debouncedTicker] }).then((res) => {
-        if (res[debouncedTicker]) {
-           form.setValue("precoAtual", res[debouncedTicker]);
-           // Se o preço médio ainda não foi preenchido, ajuda o usuário preenchendo
-           if (!form.getValues("precoMedio")) {
+      fetchQuotes({ data: [debouncedTicker] })
+        .then((res) => {
+          if (res[debouncedTicker]) {
+            form.setValue("precoAtual", res[debouncedTicker]);
+            // Se o preço médio ainda não foi preenchido, ajuda o usuário preenchendo
+            if (!form.getValues("precoMedio")) {
               form.setValue("precoMedio", res[debouncedTicker]);
-           }
-        }
-      }).catch(() => {
-        // Ignora erro silenciosamente para não atrapalhar a digitação
-      });
+            }
+          }
+        })
+        .catch(() => {
+          // Ignora erro silenciosamente para não atrapalhar a digitação
+        });
     }
   }, [debouncedTicker, ativoParaEditar, form]);
 
