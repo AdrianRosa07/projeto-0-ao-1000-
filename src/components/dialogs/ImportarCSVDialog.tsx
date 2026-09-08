@@ -19,9 +19,11 @@ interface ImportarCSVDialogProps {
 }
 
 // Mapeamento de possíveis nomes de colunas (normalizado para lowercase)
-const COLUNAS_TICKER = ["ticker", "codigo", "código", "ativo", "symbol", "simbolo", "símbolo"];
+const COLUNAS_TICKER = ["ticker", "codigo", "código", "ativo", "symbol", "simbolo", "símbolo", "codigo de negociacao"];
 const COLUNAS_QTD = ["quantidade", "qtd", "qty", "qtde"];
-const COLUNAS_PM = ["preço médio", "preco medio", "preço medio", "preco médio", "pm", "preco_medio", "preço_medio", "custo medio", "custo médio", "preco medio unitario", "preço médio unitário"];
+const COLUNAS_PM = ["preço médio", "preco medio", "preço medio", "preco médio", "pm", "preco_medio", "preço_medio", "custo medio", "custo médio", "preco medio unitario", "preço médio unitário", "preço", "preco"];
+const COLUNAS_DATA = ["data", "data do negocio", "data do negócio", "data da operação"];
+const COLUNAS_TIPO = ["tipo", "tipo de movimentação", "tipo de movimentacao", "operação", "operacao", "c/v"];
 
 interface CsvRowRaw {
   [key: string]: string;
@@ -31,6 +33,8 @@ interface CsvRowNormalized {
   ticker: string;
   quantidade: string;
   precoMedio: string;
+  data: string;
+  tipo: string;
 }
 
 export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps) {
@@ -100,11 +104,12 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
         const tickerCol = findColumn(headers, COLUNAS_TICKER);
         const qtdCol = findColumn(headers, COLUNAS_QTD);
         const pmCol = findColumn(headers, COLUNAS_PM);
+        const dataCol = findColumn(headers, COLUNAS_DATA);
+        const tipoCol = findColumn(headers, COLUNAS_TIPO);
 
         if (!tickerCol || !qtdCol || !pmCol) {
           toast.error(
-            `Colunas não reconhecidas. Encontradas: ${headers.join(", ")}.\n` +
-              `Esperado: Ticker (${COLUNAS_TICKER.join("/")}), Quantidade (${COLUNAS_QTD.join("/")}), Preço Médio (${COLUNAS_PM.join("/")})`
+            `Colunas obrigatórias não encontradas. (Encontradas: ${headers.join(", ")})`
           );
           return;
         }
@@ -115,6 +120,8 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
             ticker: row[tickerCol].trim(),
             quantidade: row[qtdCol]?.trim() || "0",
             precoMedio: row[pmCol]?.trim() || "0",
+            data: dataCol && row[dataCol] ? row[dataCol].trim() : "",
+            tipo: tipoCol && row[tipoCol] ? row[tipoCol].trim() : "compra",
           }))
           .filter((row) => row.ticker && parseFloat(row.quantidade.replace(",", ".")) > 0);
 
@@ -141,18 +148,38 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
     try {
       for (const row of parsedData) {
         const ticker = row.ticker.trim().toUpperCase();
+        // Remove F (mercado fracionário) da B3 para agrupar corretamente
+        const cleanTicker = ticker.endsWith("F") ? ticker.slice(0, -1) : ticker;
         const quantidade = parseFloat(row.quantidade.replace(",", "."));
         const precoMedio = parseFloat(row.precoMedio.replace(",", "."));
+        
+        // Parse da data padrão BR (DD/MM/YYYY) para ISO
+        let dataIso = new Date().toISOString().split("T")[0];
+        if (row.data) {
+          const parts = row.data.split("/");
+          if (parts.length === 3) {
+            dataIso = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          } else {
+            // tenta fazer parse normal
+            const d = new Date(row.data);
+            if (!isNaN(d.getTime())) dataIso = d.toISOString().split("T")[0];
+          }
+        }
 
-        if (ticker && !isNaN(quantidade) && !isNaN(precoMedio) && quantidade > 0) {
+        let tipoOperacao: "compra" | "venda" = "compra";
+        if (row.tipo.toLowerCase().includes("v") || row.tipo.toLowerCase().includes("venda")) {
+          tipoOperacao = "venda";
+        }
+
+        if (cleanTicker && !isNaN(quantidade) && !isNaN(precoMedio) && quantidade > 0) {
           await registrarTransacao({
-            ticker,
-            tipo: "compra", // Tratando como aporte inicial
+            ticker: cleanTicker,
+            tipo: tipoOperacao,
             quantidade,
             precoUnitario: precoMedio,
-            data: new Date().toISOString().split("T")[0] || "", // Data de hoje
+            data: dataIso,
             taxas: 0,
-            notas: "Importação via CSV",
+            notas: "Importação B3/CSV",
           });
           importados++;
         }
@@ -209,13 +236,19 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
               </p>
               <ul className="list-disc pl-5 mt-2 space-y-1 text-xs">
                 <li>
-                  <strong>Ticker</strong>: Código do ativo (ex: PETR4)
+                  <strong>Ticker</strong>: Código do ativo (ex: PETR4). Reconhece <em>Código de Negociação</em> da B3. (Lotes fracionários como PETR4F serão convertidos para PETR4 automaticamente).
                 </li>
                 <li>
-                  <strong>Quantidade</strong>: Total de cotas
+                  <strong>Quantidade</strong>: Total de cotas compradas/vendidas.
                 </li>
                 <li>
-                  <strong>Preço Médio</strong>: Seu custo médio por cota
+                  <strong>Preço Médio</strong>: Seu custo/preço por cota. Reconhece <em>Preço</em> da B3.
+                </li>
+                <li>
+                  <strong>Data do Negócio</strong> (Opcional): Formato DD/MM/AAAA.
+                </li>
+                <li>
+                  <strong>Tipo de Movimentação</strong> (Opcional): Compra ou Venda. Padrão: Compra.
                 </li>
               </ul>
               <Button
