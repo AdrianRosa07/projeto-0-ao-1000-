@@ -36,28 +36,33 @@ serve(async (req) => {
       });
     }
 
-    // 2. Chamar a Brapi em chunks (a Brapi não tem um limite baixo de tickers por chamada, 
-    // mas por segurança vamos juntar todos. Se houver muitos, pode ser necessário chunking).
-    const queryTickers = uniqueTickers.join(",");
-    const url = `https://brapi.dev/api/quote/${queryTickers}?token=${BRAPI_TOKEN}`;
-
-    const brapiRes = await fetch(url);
-    if (!brapiRes.ok) {
-      throw new Error(`Brapi retornou status ${brapiRes.status}`);
-    }
-
-    const json = (await brapiRes.json()) as BrapiResponse;
+    // 2. Chamar a Brapi um por um (Plano Gratuito só permite 1 ticker por chamada)
     const upsertData: { ticker: string; preco: number }[] = [];
 
-    if (json.results) {
-      json.results.forEach((item) => {
-        if (item.symbol && item.regularMarketPrice != null) {
+    for (const ticker of uniqueTickers) {
+      try {
+        const url = `https://brapi.dev/api/quote/${ticker}?token=${BRAPI_TOKEN}`;
+        const brapiRes = await fetch(url);
+        
+        if (!brapiRes.ok) {
+          console.error(`Erro ao buscar ${ticker}: Status ${brapiRes.status}`);
+          continue;
+        }
+
+        const json = (await brapiRes.json()) as BrapiResponse;
+        
+        if (json.results && json.results[0] && json.results[0].regularMarketPrice != null) {
           upsertData.push({
-            ticker: item.symbol,
-            preco: item.regularMarketPrice,
+            ticker: json.results[0].symbol || ticker,
+            preco: json.results[0].regularMarketPrice,
           });
         }
-      });
+        
+        // Pequeno delay para evitar Rate Limit (rajada) da API
+        await new Promise(r => setTimeout(r, 250));
+      } catch (err) {
+        console.error(`Erro na requisição do ticker ${ticker}:`, err);
+      }
     }
 
     if (upsertData.length === 0) {
