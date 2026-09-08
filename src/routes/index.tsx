@@ -437,7 +437,14 @@ function Carteira() {
                       className="border-t border-border/50 transition-colors hover:bg-elevated/40 [&>td]:px-4 [&>td]:py-3 [&>td]:text-right [&>td:first-child]:text-left"
                     >
                       <td>
-                        <div className="font-semibold text-foreground">{p.ticker}</div>
+                        <div className="font-semibold text-foreground flex items-center gap-2">
+                          {p.ticker}
+                          {p.dpaProjetado && p.dpaProjetado > 0 && p.precoAtual < (p.dpaProjetado / 0.06) && (
+                            <span title={`Preço Teto: ${formatBrl(p.dpaProjetado / 0.06)}`} className="rounded bg-positive/15 px-1.5 py-0.5 text-[10px] font-bold text-positive uppercase tracking-wider">
+                              Oportunidade
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-muted-foreground truncate max-w-[140px]">
                           {p.nome} · {p.setor}
                         </div>

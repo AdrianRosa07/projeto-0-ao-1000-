@@ -9,6 +9,7 @@ export type Ativo = {
   precoMedio: number;
   precoAtual: number;
   dyAno: number; // dividend yield 12m em %
+  dpaProjetado?: number; // dividendo por ação projetado
   proventos12m: number; // por cota/ação
   notaFundamentalista: number; // 0-10
 };

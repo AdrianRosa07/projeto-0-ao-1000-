@@ -66,6 +66,7 @@ export interface PosicaoEnriquecida extends Ativo {
   lucro: number;
   variacao: number;
   rendaAno: number;
+  dpaProjetado: number;
   peso: number;
 }
 
@@ -99,6 +100,7 @@ export const ativoSchema = z.object({
   precoMedio: z.number().min(0),
   precoAtual: z.number().min(0),
   dyAno: z.number().min(0),
+  dpaProjetado: z.number().min(0),
   proventos12m: z.number().min(0),
   notaFundamentalista: z.number().min(0).max(10),
 });
@@ -227,6 +229,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
               precoMedio: Number(a.preco_medio),
               precoAtual: Number(a.preco_medio),
               dyAno: a.dy_ano ? Number(a.dy_ano) : 0,
+              dpaProjetado: a.dpa_projetado ? Number(a.dpa_projetado) : 0,
               proventos12m: a.proventos_12m ? Number(a.proventos_12m) : 0,
               notaFundamentalista: a.nota_fundamentalista ? Number(a.nota_fundamentalista) : 0,
             })),
@@ -300,6 +303,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
         quantidade: novo.quantidade,
         preco_medio: novo.precoMedio,
         dy_ano: novo.dyAno,
+        dpa_projetado: novo.dpaProjetado,
         proventos_12m: novo.proventos12m,
         nota_fundamentalista: novo.notaFundamentalista,
       },
@@ -329,6 +333,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     if (updates["precoMedio"] !== undefined) payload["preco_medio"] = updates["precoMedio"];
     if (updates["classe"] !== undefined) payload["classe"] = updates["classe"];
     if (updates["dyAno"] !== undefined) payload["dy_ano"] = updates["dyAno"];
+    if (updates["dpaProjetado"] !== undefined) payload["dpa_projetado"] = updates["dpaProjetado"];
     if (updates["proventos12m"] !== undefined) payload["proventos_12m"] = updates["proventos12m"];
     if (updates["notaFundamentalista"] !== undefined)
       payload["nota_fundamentalista"] = updates["notaFundamentalista"];
@@ -398,6 +403,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
             precoMedio: newTx.precoUnitario,
             precoAtual: newTx.precoUnitario,
             dyAno: 0,
+            dpaProjetado: 0,
             proventos12m: 0,
             notaFundamentalista: 0,
           };

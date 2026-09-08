@@ -42,6 +42,7 @@ const formSchema = z.object({
   precoMedio: z.coerce.number({ invalid_type_error: "Obrigatório" }).min(0, "Mín. 0"),
   precoAtual: z.coerce.number().min(0, "Mín. 0").optional(),
   dyAno: z.coerce.number().min(0, "Mín. 0").optional(),
+  dpaProjetado: z.coerce.number().min(0, "Mín. 0").optional(),
   proventos12m: z.coerce.number().min(0, "Mín. 0").optional(),
   notaFundamentalista: z.coerce.number().min(0).max(10, "Máx. 10").optional(),
 });
@@ -68,6 +69,7 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
       precoMedio: 0,
       precoAtual: undefined,
       dyAno: undefined,
+      dpaProjetado: undefined,
       proventos12m: undefined,
       notaFundamentalista: 8.0,
     },
@@ -85,6 +87,7 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
           precoMedio: ativoParaEditar.precoMedio,
           precoAtual: ativoParaEditar.precoAtual || undefined,
           dyAno: ativoParaEditar.dyAno || undefined,
+          dpaProjetado: ativoParaEditar.dpaProjetado || undefined,
           proventos12m: ativoParaEditar.proventos12m || undefined,
           notaFundamentalista: ativoParaEditar.notaFundamentalista || 8.0,
         });
@@ -98,6 +101,7 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
           precoMedio: "" as unknown as number,
           precoAtual: undefined,
           dyAno: undefined,
+          dpaProjetado: undefined,
           proventos12m: undefined,
           notaFundamentalista: 8.0,
         });
@@ -147,6 +151,7 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
       precoMedio: data.precoMedio,
       precoAtual: paNum,
       dyAno: dyNum,
+      dpaProjetado: data.dpaProjetado,
       proventos12m: provNum,
       notaFundamentalista: notaNum,
     };
@@ -299,6 +304,19 @@ export function AtivoDialog({ open, onOpenChange, ativoParaEditar }: AtivoDialog
             </div>
 
             <div className="grid grid-cols-3 gap-3">
+              <FormField
+                control={form.control}
+                name="dpaProjetado"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>DPA Projetado (Opcional)</FormLabel>
+                    <FormControl>
+                      <Input type="number" step="0.01" placeholder="Ex: 1.20" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               <FormField
                 control={form.control}
                 name="dyAno"
