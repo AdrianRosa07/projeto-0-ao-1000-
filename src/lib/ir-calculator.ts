@@ -13,10 +13,13 @@ export interface CalculoIRMes {
   totalVendasAcoes: number;
   lucroAcoes: number;
   lucroFIIs: number;
+  lucroBdrEtf: number;
   prejuizoAcumuladoAcoes: number;
   prejuizoAcumuladoFIIs: number;
+  prejuizoAcumuladoBdrEtf: number;
   impostoAcoes: number;
   impostoFIIs: number;
+  impostoBdrEtf: number;
   isentoAcoes: boolean;
   darfTotal: number;
 }
@@ -33,6 +36,7 @@ export function calcularIR(transacoes: TransacaoIR[]): CalculoIRMes[] {
   
   let prejuizoAcumuladoAcoes = 0;
   let prejuizoAcumuladoFIIs = 0;
+  let prejuizoAcumuladoBdrEtf = 0;
 
   for (const tx of txs) {
     const data = new Date(tx.data);
@@ -44,10 +48,13 @@ export function calcularIR(transacoes: TransacaoIR[]): CalculoIRMes[] {
         totalVendasAcoes: 0,
         lucroAcoes: 0,
         lucroFIIs: 0,
+        lucroBdrEtf: 0,
         prejuizoAcumuladoAcoes,
         prejuizoAcumuladoFIIs,
+        prejuizoAcumuladoBdrEtf,
         impostoAcoes: 0,
         impostoFIIs: 0,
+        impostoBdrEtf: 0,
         isentoAcoes: false,
         darfTotal: 0
       };
@@ -77,6 +84,8 @@ export function calcularIR(transacoes: TransacaoIR[]): CalculoIRMes[] {
         mesData.lucroAcoes += lucroBruto;
       } else if (tx.classe === "FII") {
         mesData.lucroFIIs += lucroBruto;
+      } else if (tx.classe === "BDR" || tx.classe === "ETF") {
+        mesData.lucroBdrEtf += lucroBruto;
       }
     }
   }
@@ -116,7 +125,18 @@ export function calcularIR(transacoes: TransacaoIR[]): CalculoIRMes[] {
       prejuizoAcumuladoFIIs += Math.abs(mes.lucroFIIs);
     }
 
-    mes.darfTotal = mes.impostoAcoes + mes.impostoFIIs;
+    // BDR/ETF
+    mes.prejuizoAcumuladoBdrEtf = prejuizoAcumuladoBdrEtf;
+    if (mes.lucroBdrEtf > 0) {
+      const lucroTributavel = Math.max(0, mes.lucroBdrEtf - prejuizoAcumuladoBdrEtf);
+      const prejuizoUtilizado = mes.lucroBdrEtf - lucroTributavel;
+      prejuizoAcumuladoBdrEtf -= prejuizoUtilizado;
+      mes.impostoBdrEtf = lucroTributavel * 0.15; // 15% Swing Trade (sem isenção de 20k)
+    } else if (mes.lucroBdrEtf < 0) {
+      prejuizoAcumuladoBdrEtf += Math.abs(mes.lucroBdrEtf);
+    }
+
+    mes.darfTotal = mes.impostoAcoes + mes.impostoFIIs + mes.impostoBdrEtf;
   }
 
   return mesesOrdenados.reverse(); // Do mais recente para o mais antigo

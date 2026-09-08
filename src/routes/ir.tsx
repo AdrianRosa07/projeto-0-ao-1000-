@@ -16,16 +16,14 @@ export const Route = createFileRoute("/ir")({
 });
 
 function IR() {
-  const { transacoes, formatBrl } = usePortfolio();
+  const { transacoes, ativos, formatBrl } = usePortfolio();
 
   const relatorioIR = useMemo(() => {
     // A API do ir-calculator pede uma lista com campos específicos
     // Vamos garantir que a classe está preenchida corretamente
     const txsMapeadas = transacoes.map(t => {
-      // Como o transacoes store não salva a classe diretamente (apenas na tabela ativos),
-      // precisamos inferir ou trazer do ativo. 
-      // Por simplificação (já que o ir-calculator precisa disso agora):
-      const isFII = t.ticker.length >= 5 && t.ticker.endsWith('11') && !t.ticker.startsWith('BBDC') && !t.ticker.startsWith('TAEE') && !t.ticker.startsWith('KLBN'); 
+      const ativoRef = ativos.find(a => a.ticker === t.ticker);
+      const classe = ativoRef?.classe || "Ação"; 
       return {
         id: t.id,
         data: t.data,
@@ -33,7 +31,7 @@ function IR() {
         tipo: t.tipo,
         quantidade: t.quantidade,
         precoUnitario: t.precoUnitario,
-        classe: (isFII ? "FII" : "Ação") as "Ação" | "FII" | "BDR" | "ETF"
+        classe: classe as "Ação" | "FII" | "BDR" | "ETF"
       };
     });
     return calcularIR(txsMapeadas);
@@ -88,7 +86,7 @@ function IR() {
                   )}
                 </div>
 
-                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
                   {/* Bloco Ações */}
                   <div className="space-y-1">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ações (Vendas no Mês)</p>
@@ -117,6 +115,15 @@ function IR() {
                     <p className="text-xs text-muted-foreground">Prejuízo acum.: {formatBrl(mes.prejuizoAcumuladoFIIs)}</p>
                   </div>
 
+                  {/* Bloco BDR/ETF */}
+                  <div className="space-y-1">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Resultado BDR/ETF</p>
+                    <p className={`text-lg font-semibold ${mes.lucroBdrEtf > 0 ? "text-positive" : mes.lucroBdrEtf < 0 ? "text-negative" : ""}`}>
+                      {formatBrl(mes.lucroBdrEtf)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">Prejuízo acum.: {formatBrl(mes.prejuizoAcumuladoBdrEtf)}</p>
+                  </div>
+
                   <div className="space-y-1 rounded-xl bg-elevated/50 p-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Imposto Devido</p>
                     <div className="mt-1 flex justify-between text-sm">
@@ -126,6 +133,10 @@ function IR() {
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">FIIs:</span>
                       <span className="font-medium">{formatBrl(mes.impostoFIIs)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">BDR/ETF:</span>
+                      <span className="font-medium">{formatBrl(mes.impostoBdrEtf)}</span>
                     </div>
                   </div>
                 </div>

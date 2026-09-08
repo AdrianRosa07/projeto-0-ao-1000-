@@ -144,9 +144,10 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
   const confirmarImportacao = async () => {
     setIsProcessing(true);
     let importados = 0;
+    let falhas = 0;
 
-    try {
-      for (const row of parsedData) {
+    for (const row of parsedData) {
+      try {
         const ticker = row.ticker.trim().toUpperCase();
         // Remove F (mercado fracionário) da B3 para agrupar corretamente
         const cleanTicker = ticker.endsWith("F") ? ticker.slice(0, -1) : ticker;
@@ -167,7 +168,8 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
         }
 
         let tipoOperacao: "compra" | "venda" = "compra";
-        if (row.tipo.toLowerCase().includes("v") || row.tipo.toLowerCase().includes("venda")) {
+        const tStr = row.tipo.trim().toLowerCase();
+        if (tStr === "v" || tStr === "venda" || tStr.startsWith("vend")) {
           tipoOperacao = "venda";
         }
 
@@ -183,21 +185,22 @@ export function ImportarCSVDialog({ open, onOpenChange }: ImportarCSVDialogProps
           });
           importados++;
         }
+      } catch (error) {
+        console.error(`Falha ao importar linha ${row.ticker}:`, error);
+        falhas++;
       }
-
-      if (importados > 0) {
-        toast.success(`${importados} ativos importados com sucesso!`);
-      } else {
-        toast.error("Nenhum ativo válido foi encontrado para importação.");
-      }
-      resetAndClose();
-    } catch (error) {
-      console.error(error);
-      const errorMessage = error instanceof Error ? error.message : "Erro desconhecido";
-      toast.error(`Erro: ${errorMessage}`);
-    } finally {
-      setIsProcessing(false);
     }
+
+    if (importados > 0) {
+      toast.success(`${importados} ativos importados com sucesso! ${falhas > 0 ? `(${falhas} falhas)` : ""}`);
+    } else if (falhas > 0) {
+      toast.error(`Falha ao importar. ${falhas} erros encontrados.`);
+    } else {
+      toast.error("Nenhum ativo válido foi encontrado para importação.");
+    }
+    
+    resetAndClose();
+    setIsProcessing(false);
   };
 
   const resetAndClose = () => {
