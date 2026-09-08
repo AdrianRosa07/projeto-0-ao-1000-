@@ -11,6 +11,7 @@ import {
   Eye,
   EyeOff,
   Database,
+  Receipt,
 } from "lucide-react";
 import { usePortfolio } from "@/lib/portfolio-store";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ const nav = [
   { to: "/proventos", label: "Proventos", icon: Coins },
   { to: "/aportes", label: "Aportes", icon: Target },
   { to: "/analise", label: "Análise", icon: LineChart },
+  { to: "/ir", label: "Imposto", icon: Receipt },
 ] as const;
 
 export function AppShell({

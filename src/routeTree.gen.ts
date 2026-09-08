@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AnaliseRouteImport } from './routes/analise'
 import { Route as AportesRouteImport } from './routes/aportes'
+import { Route as IrRouteImport } from './routes/ir'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as ProventosRouteImport } from './routes/proventos'
 
@@ -30,6 +31,11 @@ const AportesRoute = AportesRouteImport.update({
   path: '/aportes',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IrRoute = IrRouteImport.update({
+  id: '/ir',
+  path: '/ir',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
@@ -45,6 +51,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/aportes': typeof AportesRoute
+  '/ir': typeof IrRoute
   '/login': typeof LoginRoute
   '/proventos': typeof ProventosRoute
 }
@@ -52,6 +59,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/aportes': typeof AportesRoute
+  '/ir': typeof IrRoute
   '/login': typeof LoginRoute
   '/proventos': typeof ProventosRoute
 }
@@ -60,21 +68,24 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/analise': typeof AnaliseRoute
   '/aportes': typeof AportesRoute
+  '/ir': typeof IrRoute
   '/login': typeof LoginRoute
   '/proventos': typeof ProventosRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/analise' | '/aportes' | '/login' | '/proventos'
+  fullPaths: '/' | '/analise' | '/aportes' | '/ir' | '/login' | '/proventos'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/analise' | '/aportes' | '/login' | '/proventos'
-  id: '__root__' | '/' | '/analise' | '/aportes' | '/login' | '/proventos'
+  to: '/' | '/analise' | '/aportes' | '/ir' | '/login' | '/proventos'
+  id:
+    '__root__' | '/' | '/analise' | '/aportes' | '/ir' | '/login' | '/proventos'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AnaliseRoute: typeof AnaliseRoute
   AportesRoute: typeof AportesRoute
+  IrRoute: typeof IrRoute
   LoginRoute: typeof LoginRoute
   ProventosRoute: typeof ProventosRoute
 }
@@ -102,6 +113,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AportesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/ir': {
+      id: '/ir'
+      path: '/ir'
+      fullPath: '/ir'
+      preLoaderRoute: typeof IrRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/login': {
       id: '/login'
       path: '/login'
@@ -123,6 +141,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AnaliseRoute: AnaliseRoute,
   AportesRoute: AportesRoute,
+  IrRoute: IrRoute,
   LoginRoute: LoginRoute,
   ProventosRoute: ProventosRoute,
 }
