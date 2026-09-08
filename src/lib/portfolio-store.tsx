@@ -174,6 +174,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [transacoes, setTransacoes] = useState<Transacao[]>([]);
   const [proventos, setProventos] = useState<ProventoRegistro[]>([]);
+  const [historicoPatrimonio, setHistoricoPatrimonio] = useState<any[]>([]);
   const [metas, setMetas] = useState<Record<string, number>>(initialMetas);
   const [modoPrivacidade, setModoPrivacidade] = useState(false);
   const [isHydrated, setIsHydrated] = useState(false);
@@ -208,10 +209,11 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
 
     const fetchSupabase = async () => {
       try {
-        const [resAtivos, resTx, resProv] = await Promise.all([
+        const [resAtivos, resTx, resProv, resHist] = await Promise.all([
           supabase.from("ativos").select("*").eq("user_id", user.id),
           supabase.from("transacoes").select("*").eq("user_id", user.id),
           supabase.from("proventos").select("*").eq("user_id", user.id),
+          supabase.from("historico_patrimonio").select("*").eq("user_id", user.id),
         ]);
 
         if (resAtivos.data) {
@@ -252,10 +254,16 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
               ticker: p.ticker,
               tipo: p.tipo as ProventoRegistro["tipo"],
               valor: Number(p.valor_total),
-              status: "Recebido",
+              status: p.status as "Pendente" | "Recebido",
             })),
           );
         }
+
+        if (resHist.data) {
+          setHistoricoPatrimonio(resHist.data);
+        }
+
+        setIsHydrated(true);
       } catch (e) {
         console.error("Erro ao carregar dados remotos:", e);
       } finally {
@@ -675,32 +683,17 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
     }));
   }, [proventos]);
 
-  // Evolução do patrimônio e aportes baseada no histórico de transações
+  // Evolução do patrimônio e aportes baseada no histórico de transações e snapshots
   const evolucaoPatrimonio = useMemo(() => {
     const months = getLast12Months();
 
     const parseMesAnoToDate = (mesAno: string) => {
       const [mesStr, anoStr] = mesAno.split("/");
-      const mesesNome = [
-        "jan",
-        "fev",
-        "mar",
-        "abr",
-        "mai",
-        "jun",
-        "jul",
-        "ago",
-        "set",
-        "out",
-        "nov",
-        "dez",
-      ];
+      const mesesNome = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
       const monthIdx = mesStr ? mesesNome.indexOf(mesStr) : -1;
       const year = anoStr ? 2000 + parseInt(anoStr, 10) : 2000;
-      if (monthIdx < 0 || monthIdx >= 12) {
-        return new Date(); // fallback
-      }
-      // Return end of month (dia 0 do mês seguinte)
+      if (monthIdx < 0 || monthIdx >= 12) return new Date(); // fallback
+      // Dia zero = último dia do mês atual
       return new Date(year, monthIdx + 1, 0, 23, 59, 59);
     };
 
@@ -708,6 +701,7 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
       const endOfMonthDate = parseMesAnoToDate(mes);
       const isCurrentMonth = idx === months.length - 1;
 
+      // Calcular o total aportado acumulado até este mês
       let aportadoAteMes = 0;
       for (const tx of transacoes) {
         const txDate = new Date(tx.data);
@@ -716,17 +710,36 @@ export function PortfolioProvider({ children }: { children: ReactNode }) {
           aportadoAteMes += tx.tipo === "compra" ? valorTx : -valorTx;
         }
       }
+      aportadoAteMes = Math.max(0, aportadoAteMes); // Evita valores negativos
 
-      // Previne valores negativos se houver erro de digitação do usuário
-      aportadoAteMes = Math.max(0, aportadoAteMes);
+      // Buscar snapshot para o mês específico
+      // O formato do historicoPatrimonio.mes_ano é "MM/YYYY" (ex: "09/2026")
+      const mesNum = (endOfMonthDate.getMonth() + 1).toString().padStart(2, "0");
+      const anoCompleto = endOfMonthDate.getFullYear();
+      const dbMesAno = `${mesNum}/${anoCompleto}`;
+      
+      const snapshot = historicoPatrimonio.find(h => h.mes_ano === dbMesAno);
+
+      // Se for o mês atual, a gente sempre usa o cálculo online de patrimônio.
+      // Se tiver snapshot no passado, a gente usa o valor dele.
+      // Se não tiver snapshot no passado (antigos), a gente usa aportadoAteMes como fallback
+      let patrimonioNoMes = aportadoAteMes;
+      
+      if (isCurrentMonth) {
+         patrimonioNoMes = Math.max(patrimonio, aportadoAteMes);
+      } else if (snapshot) {
+         patrimonioNoMes = snapshot.valor_patrimonio;
+         // Podemos usar o aportado do snapshot também, se houver:
+         // aportadoAteMes = snapshot.valor_aportado; 
+      }
 
       return {
         mes,
         aportado: aportadoAteMes,
-        patrimonio: isCurrentMonth ? Math.max(patrimonio, aportadoAteMes) : aportadoAteMes, // Simplificação para meses passados
+        patrimonio: patrimonioNoMes,
       };
     });
-  }, [transacoes, patrimonio]);
+  }, [transacoes, patrimonio, historicoPatrimonio]);
 
   const proventosRecebidos = useMemo(() => {
     return proventos.filter((p) => p.status === "Recebido");
